@@ -392,10 +392,20 @@
 
     // ── TAB SWITCH ──
     function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0)===(tab==='login')));
-      document.getElementById('panel-login').classList.toggle('active',  tab==='login');
-      document.getElementById('panel-signup').classList.toggle('active', tab==='signup');
+      document.querySelectorAll('.tab').forEach((t,i) => {
+        t.classList.toggle('active', tab==='login' ? i===0 : i===1);
+      });
+      document.getElementById('panel-login').classList.remove('active');
+      document.getElementById('panel-signup').classList.remove('active');
+      if(tab==='login') document.getElementById('panel-login').classList.add('active');
+      else document.getElementById('panel-signup').classList.add('active');
     }
+```
+
+**Ctrl + S** save karo → phir terminal mein:
+```
+
+
 
     // ── PASSWORD TOGGLE ──
     function togglePw(id, btn) {
