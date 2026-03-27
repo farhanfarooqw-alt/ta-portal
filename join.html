@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TA Portal — Join Class</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:     #080d1a;
+      --card:   #121c30;
+      --card2:  #1a2640;
+      --accent: #4f8ef7;
+      --accent2:#38e5b0;
+      --text:   #e4ecff;
+      --muted:  #6a7fa8;
+      --border: rgba(79,142,247,0.15);
+      --error:  #f77474;
+      --success:#38e5b0;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px;
+    }
+
+    /* blobs */
+    .blob { position:fixed; border-radius:50%; filter:blur(110px); opacity:0.09; pointer-events:none; }
+    .blob1 { width:550px; height:550px; background:var(--accent);  top:-180px;   left:-180px; animation:d1 13s ease-in-out infinite; }
+    .blob2 { width:400px; height:400px; background:var(--accent2); bottom:-120px; right:-120px;animation:d2 15s ease-in-out infinite; }
+    @keyframes d1{0%,100%{transform:translate(0,0)}50%{transform:translate(55px,40px)}}
+    @keyframes d2{0%,100%{transform:translate(0,0)}50%{transform:translate(-40px,-55px)}}
+
+    /* wrapper */
+    .wrapper {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 480px;
+      animation: fadeUp 0.6s ease both;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
+
+    /* logo */
+    .logo {
+      text-align: center; margin-bottom: 24px;
+      font-family:'Syne',sans-serif; font-size:1.2rem; font-weight:800;
+    }
+    .logo span { color: var(--accent); }
+
+    /* ── TA INFO CARD ── */
+    .ta-card {
+      background: linear-gradient(135deg, rgba(79,142,247,0.1), rgba(56,229,176,0.07));
+      border: 1px solid rgba(79,142,247,0.25);
+      border-radius: 18px; padding: 28px 24px;
+      text-align: center; margin-bottom: 20px;
+      position: relative; overflow: hidden;
+    }
+    .ta-card::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+    .ta-avatar {
+      width: 68px; height: 68px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-family:'Syne',sans-serif; font-weight:800; font-size:1.5rem; color:#fff;
+      margin: 0 auto 14px;
+      box-shadow: 0 4px 20px rgba(79,142,247,0.35);
+    }
+    .ta-label {
+      font-size: 0.72rem; text-transform: uppercase;
+      letter-spacing: 2.5px; color: var(--accent);
+      font-weight: 600; margin-bottom: 6px;
+    }
+    .ta-name {
+      font-family:'Syne',sans-serif; font-size:1.5rem;
+      font-weight:800; letter-spacing:-0.5px;
+    }
+    .ta-meta {
+      margin-top: 10px;
+      display: flex; justify-content: center; gap: 6px; flex-wrap: wrap;
+    }
+    .meta-chip {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      padding: 5px 14px; border-radius: 100px;
+      font-size: 0.8rem; color: var(--muted);
+    }
+    .meta-chip strong { color: var(--text); }
+
+    /* ── FORM CARD ── */
+    .form-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px; padding: 28px 26px;
+    }
+    .form-title {
+      font-family:'Syne',sans-serif; font-size:1.1rem; font-weight:700;
+      margin-bottom: 4px;
+    }
+    .form-sub { font-size:0.84rem; color:var(--muted); margin-bottom:22px; line-height:1.5; }
+
+    /* field */
+    .field { margin-bottom: 16px; }
+    .field label { display:block; font-size:0.8rem; color:var(--muted); margin-bottom:7px; font-weight:500; }
+    .input-wrap { position:relative; display:flex; align-items:center; }
+    .input-wrap .ico { position:absolute; left:14px; font-size:1rem; opacity:0.45; pointer-events:none; }
+    .input-wrap input {
+      width:100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px 12px 42px;
+      color: var(--text);
+      font-family:'DM Sans',sans-serif; font-size:0.92rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-wrap input::placeholder { color:var(--muted); }
+    .input-wrap input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+    }
+
+    /* alert */
+    .alert {
+      border-radius: 10px; padding: 12px 16px;
+      font-size: 0.85rem; margin-bottom: 16px;
+      display: none; line-height: 1.5;
+    }
+    .alert.error   { background:rgba(247,116,116,0.1); border:1px solid rgba(247,116,116,0.3); color:var(--error); display:block; }
+    .alert.success { background:rgba(56,229,176,0.1);  border:1px solid rgba(56,229,176,0.3);  color:var(--success); display:block; }
+
+    /* submit */
+    .btn-submit {
+      width:100%; padding:14px;
+      background: linear-gradient(135deg, var(--accent), #3a6fd8);
+      color:#fff; border:none; border-radius:10px;
+      font-family:'Syne',sans-serif; font-size:1rem; font-weight:700;
+      cursor:pointer; margin-top:6px;
+      transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(79,142,247,0.3);
+      display:flex; align-items:center; justify-content:center; gap:8px;
+    }
+    .btn-submit:hover:not(:disabled) { opacity:0.88; transform:translateY(-2px); box-shadow:0 8px 28px rgba(79,142,247,0.4); }
+    .btn-submit:disabled { opacity:0.45; cursor:not-allowed; }
+
+    /* spinner */
+    .spinner {
+      width:18px; height:18px;
+      border:2px solid rgba(255,255,255,0.25);
+      border-top-color:#fff; border-radius:50%;
+      animation:spin 0.7s linear infinite; display:none;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── SUCCESS SCREEN ── */
+    .success-screen {
+      display: none; text-align: center;
+      animation: fadeUp 0.5s ease both;
+    }
+    .success-icon { font-size:4rem; margin-bottom:16px; }
+    .success-screen h2 {
+      font-family:'Syne',sans-serif; font-size:1.5rem;
+      font-weight:800; margin-bottom:10px;
+    }
+    .success-screen p { color:var(--muted); font-size:0.9rem; line-height:1.7; }
+    .success-steps {
+      background: rgba(56,229,176,0.06);
+      border: 1px solid rgba(56,229,176,0.2);
+      border-radius:12px; padding:18px 20px;
+      margin-top:20px; text-align:left;
+    }
+    .success-steps p { font-size:0.85rem; color:var(--muted); margin-bottom:8px; }
+    .success-steps p:last-child { margin-bottom:0; }
+    .success-steps strong { color:var(--accent2); }
+
+    /* ── ERROR SCREEN (invalid link) ── */
+    .invalid-screen { display:none; text-align:center; }
+    .invalid-screen .inv-icon { font-size:3rem; margin-bottom:14px; opacity:0.5; }
+    .invalid-screen h2 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; margin-bottom:8px; }
+    .invalid-screen p  { font-size:0.88rem; color:var(--muted); line-height:1.6; }
+
+    /* loading skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, var(--card2) 25%, rgba(255,255,255,0.06) 50%, var(--card2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 8px; height: 20px; margin-bottom:8px;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    .footer-note {
+      text-align:center; margin-top:20px;
+      font-size:0.78rem; color:var(--muted);
+    }
+    .footer-note a { color:var(--accent); text-decoration:none; }
+
+    @media(max-width:480px) {
+      .form-card { padding:22px 18px; }
+      .ta-card   { padding:22px 18px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+
+  <div class="wrapper">
+    <div class="logo">TA<span>Portal</span></div>
+
+    <!-- ── LOADING STATE ── -->
+    <div id="state-loading">
+      <div class="ta-card">
+        <div class="ta-avatar" style="background:var(--card2)"></div>
+        <div class="skeleton" style="width:60%;margin:0 auto 8px"></div>
+        <div class="skeleton" style="width:80%;margin:0 auto"></div>
+      </div>
+      <div class="form-card">
+        <div class="skeleton" style="width:50%;margin-bottom:20px"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton" style="height:44px;margin-top:10px"></div>
+      </div>
+    </div>
+
+    <!-- ── INVALID LINK ── -->
+    <div id="state-invalid" class="invalid-screen form-card">
+      <div class="inv-icon">🔗</div>
+      <h2>Invalid Link</h2>
+      <p>This class link is invalid or has expired.<br/>Please ask your TA to share a new link.</p>
+    </div>
+
+    <!-- ── MAIN FORM ── -->
+    <div id="state-form" style="display:none">
+
+      <!-- TA Info Card -->
+      <div class="ta-card">
+        <div class="ta-avatar" id="ta-avatar">A</div>
+        <div class="ta-label">Teaching Assistant</div>
+        <div class="ta-name" id="ta-name">—</div>
+        <div class="ta-meta">
+          <div class="meta-chip">📚 <strong id="ta-course">—</strong></div>
+          <div class="meta-chip">🧑‍🏫 Sir <strong id="ta-sir">—</strong></div>
+        </div>
+      </div>
+
+      <!-- Registration Form -->
+      <div class="form-card">
+        <div class="form-title">Join this Class 🎓</div>
+        <div class="form-sub">Enter your details below. Your TA will verify and approve you shortly.</div>
+
+        <div class="alert" id="form-alert"></div>
+
+        <div class="field">
+          <label>Full Name</label>
+          <div class="input-wrap">
+            <span class="ico">👤</span>
+            <input type="text" id="s-name" placeholder="e.g. Muhammad Ali Khan"/>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Roll Number</label>
+          <div class="input-wrap">
+            <span class="ico">🎫</span>
+            <input type="text" id="s-roll" placeholder="e.g. 2021-CS-101"/>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Email Address <span style="color:var(--muted);font-size:0.78rem">(optional)</span></label>
+          <div class="input-wrap">
+            <span class="ico">✉️</span>
+            <input type="email" id="s-email" placeholder="your@email.com"/>
+          </div>
+        </div>
+
+        <button class="btn-submit" id="submit-btn" onclick="handleSubmit()">
+          <span class="spinner" id="submit-spinner"></span>
+          <span id="submit-text">Request to Join →</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── SUCCESS SCREEN ── -->
+    <div id="state-success" class="form-card" style="display:none;text-align:center">
+      <div class="success-screen" style="display:block">
+        <div class="success-icon">🎉</div>
+        <h2>Request Submitted!</h2>
+        <p>Your request has been sent to <strong id="success-ta-name" style="color:var(--accent2)">your TA</strong>. You'll be added to the class once they approve you.</p>
+
+        <div class="success-steps">
+          <p>✅ <strong>Step 1:</strong> You've submitted your details</p>
+          <p>⏳ <strong>Step 2:</strong> TA reviews and approves your request</p>
+          <p>📊 <strong>Step 3:</strong> Your marks and attendance will appear in the system</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ALREADY REGISTERED ── -->
+    <div id="state-already" class="form-card" style="display:none;text-align:center;padding:36px">
+      <div style="font-size:2.5rem;margin-bottom:14px">👋</div>
+      <h2 style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:800;margin-bottom:10px">Already Registered!</h2>
+      <p style="font-size:0.88rem;color:var(--muted);line-height:1.6">You have already submitted a join request for this class.<br/>Please wait for your TA to approve you.</p>
+    </div>
+
+    <div class="footer-note">
+      Powered by <a href="index.html">TA Portal</a> &nbsp;·&nbsp; Your data is secure 🔒
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL  = 'https://loxxobhsyhqaslpqqrqe.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxveHhvYmhzeWhxYXNscHFxcnFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDMyOTMsImV4cCI6MjA5MDE3OTI5M30.PIBtJi8GkRvmE47-KA0JIuRi8JmpbDAPpxyLN7420gM';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    // ── Read token from URL ──
+    const params = new URLSearchParams(window.location.search);
+    const token  = params.get('ta');  // ?ta=<class_link_token>
+
+    let taProfile = null;
+
+    // ── INIT ──
+    async function init() {
+      if (!token) { showState('invalid'); return; }
+
+      // Fetch TA profile by class_link_token
+      const { data, error } = await sb
+        .from('ta_profiles')
+        .select('id, ta_name, sir_name, course, class_link_token')
+        .eq('class_link_token', token)
+        .single();
+
+      if (error || !data) { showState('invalid'); return; }
+
+      taProfile = data;
+
+      // Fill TA info
+      const initials = data.ta_name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+      document.getElementById('ta-avatar').textContent  = initials;
+      document.getElementById('ta-name').textContent   = data.ta_name;
+      document.getElementById('ta-course').textContent = data.course;
+      document.getElementById('ta-sir').textContent    = data.sir_name;
+      document.getElementById('success-ta-name').textContent = data.ta_name;
+
+      // Update page title
+      document.title = `Join ${data.ta_name}'s Class — TA Portal`;
+
+      showState('form');
+    }
+
+    // ── SUBMIT ──
+    async function handleSubmit() {
+      const name    = document.getElementById('s-name').value.trim();
+      const roll_no = document.getElementById('s-roll').value.trim();
+      const email   = document.getElementById('s-email').value.trim();
+
+      // Validate
+      if (!name)    { showAlert('error', '⚠️ Please enter your full name.'); return; }
+      if (!roll_no) { showAlert('error', '⚠️ Please enter your roll number.'); return; }
+      if (email && !email.includes('@')) { showAlert('error', '⚠️ Please enter a valid email.'); return; }
+
+      setLoading(true);
+      clearAlert();
+
+      // Check duplicate roll_no for this TA
+      const { data: existing } = await sb
+        .from('students')
+        .select('id, status')
+        .eq('ta_id', taProfile.id)
+        .eq('roll_no', roll_no)
+        .maybeSingle();
+
+      if (existing) {
+        setLoading(false);
+        showState('already');
+        return;
+      }
+
+      // Insert student
+      const { error } = await sb.from('students').insert({
+        ta_id:   taProfile.id,
+        name,
+        roll_no,
+        email:   email || null,
+        status:  'pending',
+      });
+
+      setLoading(false);
+
+      if (error) {
+        if (error.code === '23505') { showState('already'); return; }
+        showAlert('error', '❌ Something went wrong. Please try again.');
+        return;
+      }
+
+      showState('success');
+    }
+
+    // ── HELPERS ──
+    function showState(state) {
+      ['loading','invalid','form','success','already'].forEach(s => {
+        const el = document.getElementById(`state-${s}`);
+        if (el) el.style.display = s === state ? (s==='loading'?'block':'block') : 'none';
+      });
+    }
+
+    function setLoading(on) {
+      document.getElementById('submit-btn').disabled          = on;
+      document.getElementById('submit-spinner').style.display = on ? 'block' : 'none';
+      document.getElementById('submit-text').style.opacity   = on ? 0.4 : 1;
+    }
+
+    function showAlert(type, msg) {
+      const el = document.getElementById('form-alert');
+      el.className = `alert ${type}`;
+      el.textContent = msg;
+    }
+    function clearAlert() {
+      const el = document.getElementById('form-alert');
+      el.className = 'alert';
+      el.textContent = '';
+    }
+
+    // Enter key submit
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && document.getElementById('state-form').style.display !== 'none') {
+        handleSubmit();
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TA Portal — Teacher Approval</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0f1e; --card: #1a2235; --accent: #4f8ef7;
+      --accent2: #38e5b0; --text: #e8edf7; --muted: #7a8ba8;
+      --border: rgba(79,142,247,0.15);
+      --success: #38e5b0; --error: #f77474;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex;
+      align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .blob { position: fixed; border-radius: 50%; filter: blur(100px); opacity: 0.1; pointer-events: none; }
+    .blob1 { width:500px; height:500px; background:var(--accent);  top:-150px; left:-150px; }
+    .blob2 { width:350px; height:350px; background:var(--accent2); bottom:-100px; right:-100px; }
+
+    .card {
+      position: relative; z-index: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 48px 40px;
+      max-width: 480px; width: 100%;
+      text-align: center;
+      animation: fadeUp 0.6s ease both;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+
+    .card::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      border-radius:20px 20px 0 0;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+
+    .icon-circle {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 20px;
+      border: 2px solid var(--border);
+      background: rgba(79,142,247,0.08);
+    }
+
+    h1 { font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:800; margin-bottom:8px; }
+    .subtitle { color: var(--muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 28px; }
+
+    .info-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+    .info-row {
+      display: flex; justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.88rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .lbl { color: var(--muted); }
+    .info-row .val { color: var(--text); font-weight: 500; }
+
+    .btn-row { display: flex; gap: 12px; }
+    .btn {
+      flex: 1; padding: 14px;
+      border-radius: 10px;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; border: none;
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-approve {
+      background: linear-gradient(135deg, #38e5b0, #1db882);
+      color: #0a2e22;
+      box-shadow: 0 4px 20px rgba(56,229,176,0.25);
+    }
+    .btn-approve:hover { box-shadow: 0 8px 28px rgba(56,229,176,0.4); }
+    .btn-reject {
+      background: linear-gradient(135deg, #f77474, #d94f4f);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(247,116,116,0.2);
+    }
+
+    /* Result screen */
+    .result { display: none; animation: fadeUp 0.5s ease both; }
+    .result-icon { font-size: 3.5rem; margin-bottom: 16px; }
+    .result h2 { font-family:'Syne',sans-serif; font-size:1.5rem; font-weight:800; margin-bottom:10px; }
+    .result p  { color: var(--muted); font-size: 0.9rem; line-height: 1.6; }
+
+    /* Loading */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.25);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block; vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* Error screen */
+    .error-screen { display:none; }
+    .logo { font-family:'Syne',sans-serif; font-weight:800; font-size:1.2rem; margin-bottom:28px; }
+    .logo span { color: var(--accent); }
+
+    @media(max-width:480px) {
+      .card { padding: 32px 22px; }
+      .btn-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+
+  <div class="card" id="main-card">
+    <div class="logo">TA<span>Portal</span></div>
+
+    <!-- Loading State -->
+    <div id="loading-state">
+      <div class="icon-circle">⏳</div>
+      <h1>Verifying Request...</h1>
+      <p class="subtitle">Please wait while we verify the token.</p>
+    </div>
+
+    <!-- Approval State -->
+    <div id="approval-state" style="display:none">
+      <div class="icon-circle">🎓</div>
+      <h1>TA Request</h1>
+      <p class="subtitle">A student wants to become your Teaching Assistant. Please review and decide.</p>
+
+      <div class="info-box" id="ta-info">
+        <div class="info-row"><span class="lbl">TA Name</span>  <span class="val" id="info-ta-name">—</span></div>
+        <div class="info-row"><span class="lbl">TA Email</span> <span class="val" id="info-ta-email">—</span></div>
+        <div class="info-row"><span class="lbl">Course</span>   <span class="val" id="info-course">—</span></div>
+        <div class="info-row"><span class="lbl">Requested</span><span class="val" id="info-date">—</span></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-approve" id="approve-btn" onclick="handleDecision('approve')">✅ Approve</button>
+        <button class="btn btn-reject"  id="reject-btn"  onclick="handleDecision('reject')">❌ Reject</button>
+      </div>
+    </div>
+
+    <!-- Result State -->
+    <div class="result" id="result-state">
+      <div class="result-icon" id="result-icon"></div>
+      <h2 id="result-title"></h2>
+      <p  id="result-msg"></p>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-screen" id="error-state">
+      <div class="icon-circle">⚠️</div>
+      <h1>Invalid Link</h1>
+      <p class="subtitle" id="error-msg">This approval link is invalid or has expired. Links are valid for 48 hours.</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL  = 'https://loxxobhsyhqaslpqqrqe.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxveHhvYmhzeWhxYXNscHFxcnFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDMyOTMsImV4cCI6MjA5MDE3OTI5M30.PIBtJi8GkRvmE47-KA0JIuRi8JmpbDAPpxyLN7420gM';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    // ── Read URL params ──
+    const params  = new URLSearchParams(window.location.search);
+    const token   = params.get('token');
+    const action  = params.get('action'); // 'approve' | 'reject'
+
+    let pendingRecord = null;
+
+    function show(id) {
+      ['loading-state','approval-state','result-state','error-state']
+        .forEach(s => document.getElementById(s).style.display = s === id ? 'block' : 'none');
+    }
+
+    // ── On page load: verify token ──
+    async function init() {
+      if (!token) { show('error-state'); return; }
+
+      // Fetch pending TA record by token via Edge Function
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-ta-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+        body: JSON.stringify({ token })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        document.getElementById('error-msg').textContent = data.error || 'Token invalid or expired.';
+        show('error-state');
+        return;
+      }
+
+      pendingRecord = data.record;
+
+      // Already actioned?
+      if (pendingRecord.status !== 'pending') {
+        showResult(
+          pendingRecord.status === 'approved' ? '✅' : '❌',
+          pendingRecord.status === 'approved' ? 'Already Approved' : 'Already Rejected',
+          `This TA request was already ${pendingRecord.status}.`
+        );
+        return;
+      }
+
+      // Fill info
+      document.getElementById('info-ta-name').textContent  = pendingRecord.ta_name;
+      document.getElementById('info-ta-email').textContent = pendingRecord.ta_email;
+      document.getElementById('info-course').textContent   = pendingRecord.course;
+      document.getElementById('info-date').textContent     = new Date(pendingRecord.created_at).toLocaleDateString('en-PK', {dateStyle:'long'});
+
+      // If action already in URL (from email button click)
+      if (action === 'approve' || action === 'reject') {
+        show('approval-state');
+        await handleDecision(action);
+      } else {
+        show('approval-state');
+      }
+    }
+
+    // ── Handle approve/reject decision ──
+    async function handleDecision(decision) {
+      document.getElementById('approve-btn').disabled = true;
+      document.getElementById('reject-btn').disabled  = true;
+
+      const btnId  = decision === 'approve' ? 'approve-btn' : 'reject-btn';
+      const btnEl  = document.getElementById(btnId);
+      btnEl.innerHTML = `<span class="spinner"></span> Processing...`;
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/process-ta-approval`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+        body: JSON.stringify({ token, decision })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        showResult('⚠️', 'Something went wrong', data.error || 'Please try again or contact support.');
+        return;
+      }
+
+      if (decision === 'approve') {
+        showResult('🎉', 'TA Approved!', `${pendingRecord.ta_name} has been approved as your TA for ${pendingRecord.course}. They can now log in and start managing the class.`);
+      } else {
+        showResult('❌', 'Request Rejected', `${pendingRecord.ta_name}'s request has been rejected. They will be notified by email.`);
+      }
+    }
+
+    function showResult(icon, title, msg) {
+      document.getElementById('result-icon').textContent  = icon;
+      document.getElementById('result-title').textContent = title;
+      document.getElementById('result-msg').textContent   = msg;
+      show('result-state');
+      document.getElementById('result-state').style.display = 'block';
+    }
+
+    init();
+  </script>
+</body>
+</html>

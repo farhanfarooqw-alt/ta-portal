@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TA Portal — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:      #080d1a;
+      --surface: #0f1628;
+      --card:    #141d30;
+      --card2:   #1a2440;
+      --accent:  #4f8ef7;
+      --accent2: #38e5b0;
+      --warn:    #f7c948;
+      --danger:  #f77474;
+      --text:    #e4ecff;
+      --muted:   #6a7fa8;
+      --border:  rgba(79,142,247,0.13);
+      --sidebar: 240px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; overflow-x: hidden; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar); min-height: 100vh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; bottom: 0;
+      z-index: 50; transition: transform 0.3s;
+    }
+    .sidebar-logo {
+      padding: 28px 24px 20px;
+      font-family: 'Syne', sans-serif;
+      font-size: 1.3rem; font-weight: 800;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo span { color: var(--accent); }
+
+    .ta-mini {
+      padding: 16px 24px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Syne', sans-serif; font-weight: 800;
+      font-size: 0.85rem; color: #fff; flex-shrink: 0;
+    }
+    .ta-mini-info { overflow: hidden; }
+    .ta-mini-name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ta-mini-role { font-size: 0.72rem; color: var(--muted); }
+
+    nav.sidebar-nav { padding: 16px 12px; flex: 1; }
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 14px; border-radius: 10px;
+      cursor: pointer; margin-bottom: 4px;
+      color: var(--muted); font-size: 0.88rem; font-weight: 500;
+      transition: background 0.2s, color 0.2s;
+      user-select: none;
+    }
+    .nav-item .nav-icon { font-size: 1.1rem; width: 22px; text-align: center; }
+    .nav-item:hover { background: rgba(79,142,247,0.07); color: var(--text); }
+    .nav-item.active { background: rgba(79,142,247,0.14); color: var(--accent); font-weight: 600; }
+    .nav-badge {
+      margin-left: auto; background: var(--danger);
+      color: #fff; font-size: 0.68rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 100px; min-width: 20px; text-align: center;
+    }
+
+    .sidebar-bottom {
+      padding: 16px 12px;
+      border-top: 1px solid var(--border);
+    }
+    .logout-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 10px;
+      cursor: pointer; color: var(--danger);
+      font-size: 0.85rem; font-weight: 500;
+      transition: background 0.2s;
+    }
+    .logout-btn:hover { background: rgba(247,116,116,0.08); }
+
+    /* ── MAIN ── */
+    .main {
+      margin-left: var(--sidebar);
+      flex: 1; padding: 32px 36px;
+      min-height: 100vh;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 32px;
+    }
+    .page-title { font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; }
+    .page-sub   { font-size: 0.85rem; color: var(--muted); margin-top: 3px; }
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .icon-btn {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: var(--card); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 1rem;
+      transition: background 0.2s;
+    }
+    .icon-btn:hover { background: var(--card2); }
+
+    /* ── SECTIONS ── */
+    .section { display: none; animation: fadeIn 0.35s ease both; }
+    .section.active { display: block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── STAT CARDS ── */
+    .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 28px; }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px 22px;
+      position: relative; overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.25); }
+    .stat-card::after {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+    }
+    .stat-card.blue::after  { background: var(--accent); }
+    .stat-card.green::after { background: var(--accent2); }
+    .stat-card.warn::after  { background: var(--warn); }
+    .stat-card.red::after   { background: var(--danger); }
+    .stat-icon { font-size: 1.5rem; margin-bottom: 12px; }
+    .stat-num  { font-family:'Syne',sans-serif; font-size:1.8rem; font-weight:800; line-height:1; }
+    .stat-lbl  { font-size:0.78rem; color:var(--muted); margin-top:5px; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden; margin-bottom: 20px;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 22px; border-bottom: 1px solid var(--border);
+    }
+    .card-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; }
+    .card-body  { padding: 22px; }
+
+    /* ── LINK BOX ── */
+    .link-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 18px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .link-url {
+      flex: 1; font-size: 0.85rem; color: var(--accent);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-family: monospace;
+    }
+    .copy-btn {
+      background: rgba(79,142,247,0.12); border: 1px solid rgba(79,142,247,0.25);
+      color: var(--accent); padding: 8px 16px; border-radius: 8px;
+      cursor: pointer; font-size: 0.82rem; font-weight: 600;
+      transition: background 0.2s; white-space: nowrap; border: none;
+    }
+    .copy-btn:hover { background: rgba(79,142,247,0.2); }
+
+    /* ── PREVIEW CARD ── */
+    .preview-card {
+      background: linear-gradient(135deg, rgba(79,142,247,0.08), rgba(56,229,176,0.06));
+      border: 1px solid rgba(79,142,247,0.2);
+      border-radius: 14px; padding: 24px;
+      text-align: center; margin-bottom: 20px;
+    }
+    .preview-card .p-label { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:2px; margin-bottom:8px; }
+    .preview-card h2 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; }
+    .preview-card .p-meta { font-size:0.85rem; color:var(--muted); margin-top:6px; }
+    .preview-card .p-meta strong { color:var(--accent2); }
+
+    /* ── BUTTON ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: 10px;
+      font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;
+      cursor: pointer; border: none; transition: opacity 0.2s, transform 0.2s;
+    }
+    .btn:hover { opacity:0.88; transform:translateY(-1px); }
+    .btn-primary { background: linear-gradient(135deg,var(--accent),#3a6fd8); color:#fff; box-shadow:0 3px 16px rgba(79,142,247,0.3); }
+    .btn-success { background: linear-gradient(135deg,var(--accent2),#1db882); color:#0a2e22; }
+    .btn-danger  { background: rgba(247,116,116,0.12); color:var(--danger); border:1px solid rgba(247,116,116,0.25); }
+    .btn-ghost   { background: var(--card2); color:var(--text); border:1px solid var(--border); }
+    .btn-sm { padding: 6px 14px; font-size: 0.8rem; border-radius: 7px; }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; }
+    table { width:100%; border-collapse:collapse; }
+    th {
+      text-align:left; font-size:0.75rem; text-transform:uppercase;
+      letter-spacing:1.5px; color:var(--muted); font-weight:600;
+      padding:10px 16px; background:var(--surface);
+      border-bottom:1px solid var(--border);
+    }
+    td { padding:13px 16px; font-size:0.88rem; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:rgba(255,255,255,0.02); }
+
+    .badge {
+      display:inline-block; padding:4px 10px; border-radius:100px;
+      font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;
+    }
+    .badge-pending  { background:rgba(247,201,72,0.12); color:var(--warn); border:1px solid rgba(247,201,72,0.25); }
+    .badge-approved { background:rgba(56,229,176,0.12); color:var(--accent2); border:1px solid rgba(56,229,176,0.25); }
+    .badge-rejected { background:rgba(247,116,116,0.12); color:var(--danger); border:1px solid rgba(247,116,116,0.25); }
+
+    .action-btns { display:flex; gap:6px; }
+
+    /* ── MARKS INPUT ── */
+    .marks-input {
+      width:80px; background:var(--surface);
+      border:1px solid var(--border); border-radius:7px;
+      padding:6px 10px; color:var(--text);
+      font-family:'DM Sans',sans-serif; font-size:0.85rem;
+      text-align:center; outline:none;
+      transition:border-color 0.2s;
+    }
+    .marks-input:focus { border-color:var(--accent); }
+
+    /* ── PROFILE FORM ── */
+    .profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .form-field { margin-bottom:16px; }
+    .form-field label { display:block; font-size:0.8rem; color:var(--muted); margin-bottom:7px; font-weight:500; }
+    .form-input {
+      width:100%; background:var(--surface);
+      border:1px solid var(--border); border-radius:10px;
+      padding:12px 14px; color:var(--text);
+      font-family:'DM Sans',sans-serif; font-size:0.9rem;
+      outline:none; transition:border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(79,142,247,0.1); }
+    .form-input:read-only { opacity:0.5; cursor:not-allowed; }
+
+    /* ── TOAST ── */
+    .toast {
+      position:fixed; bottom:28px; right:28px;
+      background:var(--card2); border:1px solid var(--border);
+      border-radius:12px; padding:14px 20px;
+      font-size:0.88rem; z-index:999;
+      display:flex; align-items:center; gap:10px;
+      transform:translateY(80px); opacity:0;
+      transition:transform 0.3s, opacity 0.3s;
+      box-shadow:0 8px 32px rgba(0,0,0,0.4);
+    }
+    .toast.show { transform:translateY(0); opacity:1; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state { text-align:center; padding:48px 20px; color:var(--muted); }
+    .empty-state .empty-icon { font-size:2.5rem; margin-bottom:12px; opacity:0.4; }
+    .empty-state p { font-size:0.88rem; }
+
+    /* ── MOBILE ── */
+    .mob-toggle { display:none; }
+    @media(max-width:900px) {
+      .sidebar { transform:translateX(-100%); }
+      .sidebar.open { transform:translateX(0); }
+      .main { margin-left:0; padding:20px; }
+      .stats-row { grid-template-columns:1fr 1fr; }
+      .mob-toggle { display:flex; }
+      .profile-grid { grid-template-columns:1fr; }
+    }
+    @media(max-width:500px) {
+      .stats-row { grid-template-columns:1fr 1fr; gap:10px; }
+    }
+
+    /* ── OVERLAY ── */
+    .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:40; }
+    .overlay.show { display:block; }
+
+    /* ── SYNC INDICATOR ── */
+    .sync-dot {
+      width:8px; height:8px; border-radius:50%;
+      background:var(--accent2); display:inline-block;
+      margin-right:6px; animation:pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar overlay (mobile) -->
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">TA<span>Portal</span></div>
+
+  <div class="ta-mini">
+    <div class="avatar" id="sb-avatar">A</div>
+    <div class="ta-mini-info">
+      <div class="ta-mini-name" id="sb-name">Loading...</div>
+      <div class="ta-mini-role">Teaching Assistant</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-item active" onclick="showSection('overview')">
+      <span class="nav-icon">🏠</span> Overview
+    </div>
+    <div class="nav-item" onclick="showSection('link')">
+      <span class="nav-icon">🔗</span> Class Link
+    </div>
+    <div class="nav-item" onclick="showSection('students')">
+      <span class="nav-icon">👥</span> Students
+      <span class="nav-badge" id="pending-badge" style="display:none">0</span>
+    </div>
+    <div class="nav-item" onclick="showSection('marks')">
+      <span class="nav-icon">📊</span> Marks
+    </div>
+    <div class="nav-item" onclick="showSection('profile')">
+      <span class="nav-icon">👤</span> My Profile
+    </div>
+  </nav>
+
+  <div class="sidebar-bottom">
+    <div class="logout-btn" onclick="handleLogout()">
+      <span>🚪</span> Logout
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div>
+      <div class="page-title" id="page-title">Overview</div>
+      <div class="page-sub"  id="page-sub">Welcome back 👋</div>
+    </div>
+    <div class="topbar-right">
+      <div class="icon-btn mob-toggle" onclick="openSidebar()">☰</div>
+      <div class="icon-btn" title="Refresh" onclick="loadAll()">🔄</div>
+    </div>
+  </div>
+
+  <!-- ══════════════ OVERVIEW ══════════════ -->
+  <div class="section active" id="sec-overview">
+    <div class="stats-row">
+      <div class="stat-card blue">
+        <div class="stat-icon">👥</div>
+        <div class="stat-num" id="ov-total">—</div>
+        <div class="stat-lbl">Total Students</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon">✅</div>
+        <div class="stat-num" id="ov-approved">—</div>
+        <div class="stat-lbl">Approved</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-num" id="ov-pending">—</div>
+        <div class="stat-lbl">Pending Approval</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon">📊</div>
+        <div class="stat-num" id="ov-marks">—</div>
+        <div class="stat-lbl">Marks Entered</div>
+      </div>
+    </div>
+
+    <!-- Class Link Quick View -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🔗 Your Class Invite Link</span>
+        <button class="btn btn-ghost btn-sm" onclick="showSection('link')">Manage →</button>
+      </div>
+      <div class="card-body">
+        <div id="ov-link-box">
+          <p style="color:var(--muted);font-size:0.88rem;">No link generated yet. Go to <strong>Class Link</strong> to create one.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Students -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">👥 Recent Student Requests</span>
+        <button class="btn btn-ghost btn-sm" onclick="showSection('students')">View All →</button>
+      </div>
+      <div class="card-body" id="ov-recent-students">
+        <div class="empty-state"><div class="empty-icon">👤</div><p>No students yet.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ CLASS LINK ══════════════ -->
+  <div class="section" id="sec-link">
+
+    <!-- What students will see preview -->
+    <div class="preview-card">
+      <div class="p-label">Students will see this when they open your link</div>
+      <h2 id="prev-ta-name">Your Name</h2>
+      <div class="p-meta">
+        Teaching Assistant &nbsp;·&nbsp; <strong id="prev-course">Your Course</strong>
+      </div>
+      <div class="p-meta" style="margin-top:4px">
+        Under <strong id="prev-sir">Sir's Name</strong>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🔗 Class Invite Link</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="generateLink()">⚡ Generate New Link</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="link-display">
+          <p style="color:var(--muted);font-size:0.88rem;margin-bottom:16px;">Generate a link and share it with your students. They will register through this link.</p>
+        </div>
+
+        <div style="margin-top:16px;padding:16px;background:var(--surface);border-radius:12px;border:1px solid var(--border);">
+          <p style="font-size:0.82rem;color:var(--muted);margin-bottom:10px;font-weight:600;">📋 HOW TO SHARE</p>
+          <p style="font-size:0.85rem;color:var(--muted);line-height:1.7;">
+            1. Click <strong style="color:var(--text)">Generate New Link</strong> above<br/>
+            2. Copy the link and share via WhatsApp, email, or LMS<br/>
+            3. Students open link → see your info → enter their Roll No. & name<br/>
+            4. Come to <strong style="color:var(--text)">Students</strong> tab to approve them
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ STUDENTS ══════════════ -->
+  <div class="section" id="sec-students">
+
+    <!-- Filter tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" onclick="filterStudents('all')"    id="f-all">All</button>
+      <button class="btn btn-ghost  btn-sm" onclick="filterStudents('pending')" id="f-pending">⏳ Pending</button>
+      <button class="btn btn-ghost  btn-sm" onclick="filterStudents('approved')"id="f-approved">✅ Approved</button>
+      <button class="btn btn-ghost  btn-sm" onclick="filterStudents('rejected')"id="f-rejected">❌ Rejected</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">👥 Students</span>
+        <span style="font-size:0.8rem;color:var(--muted)" id="students-count">0 students</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Roll No.</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Joined</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="students-tbody">
+            <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👤</div><p>No students yet.</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ MARKS ══════════════ -->
+  <div class="section" id="sec-marks">
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+      <div class="form-field" style="margin:0;flex:1;min-width:180px;">
+        <input class="form-input" id="marks-subject" placeholder="Subject / Quiz name (e.g. Quiz 1)"/>
+      </div>
+      <div class="form-field" style="margin:0;width:120px;">
+        <input class="form-input" id="marks-total" type="number" placeholder="Total (e.g. 20)" value="20"/>
+      </div>
+      <button class="btn btn-success" onclick="saveAllMarks()">
+        <span class="sync-dot"></span> Save & Sync Sheets
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📊 Enter Marks</span>
+        <span style="font-size:0.78rem;color:var(--muted)">Only approved students shown</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Roll No.</th>
+              <th>Marks</th>
+              <th>Out of</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody id="marks-tbody">
+            <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📊</div><p>No approved students yet.</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Google Sheets link -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">🔗 Google Sheets Integration</span></div>
+      <div class="card-body">
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;">Paste your Google Sheet URL. Marks will auto-sync when you click Save & Sync.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <input class="form-input" id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="flex:1;min-width:250px"/>
+          <button class="btn btn-ghost" onclick="saveSheetUrl()">Save URL</button>
+        </div>
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:10px;">
+          ⚠️ Make sure your Sheet is shared with edit access to your Supabase service account email.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ PROFILE ══════════════ -->
+  <div class="section" id="sec-profile">
+    <div class="card" style="max-width:600px">
+      <div class="card-header"><span class="card-title">👤 My Profile</span></div>
+      <div class="card-body">
+        <div style="text-align:center;margin-bottom:28px;">
+          <div class="avatar" id="profile-avatar" style="width:72px;height:72px;font-size:1.6rem;margin:0 auto 12px;">A</div>
+          <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700" id="profile-name-display">—</div>
+          <div style="font-size:0.82rem;color:var(--muted);margin-top:3px" id="profile-email-display">—</div>
+        </div>
+
+        <div class="profile-grid">
+          <div class="form-field">
+            <label>Your Name (TA)</label>
+            <input class="form-input" id="p-ta-name" placeholder="Your full name"/>
+          </div>
+          <div class="form-field">
+            <label>Sir's Name</label>
+            <input class="form-input" id="p-sir-name" placeholder="Teacher's name"/>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Course / Subject</label>
+          <input class="form-input" id="p-course" placeholder="e.g. Data Structures — CS-3A"/>
+        </div>
+        <div class="form-field">
+          <label>Email (cannot change)</label>
+          <input class="form-input" id="p-email" readonly/>
+        </div>
+
+        <button class="btn btn-primary" onclick="saveProfile()" style="margin-top:8px">💾 Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span id="toast-icon">✅</span>
+  <span id="toast-msg">Done!</span>
+</div>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ══════════════════════════════════════════
+//  CONFIG — Replace with your values
+// ══════════════════════════════════════════
+const SUPABASE_URL  = 'https://loxxobhsyhqaslpqqrqe.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxveHhvYmhzeWhxYXNscHFxcnFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDMyOTMsImV4cCI6MjA5MDE3OTI5M30.PIBtJi8GkRvmE47-KA0JIuRi8JmpbDAPpxyLN7420gM';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let currentTA   = null;   // ta_profiles row
+let allStudents = [];
+let currentFilter = 'all';
+
+// ── INIT ──
+(async () => {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+  await loadTA(session.user);
+  await loadAll();
+})();
+
+async function loadTA(user) {
+  const { data, error } = await sb.from('ta_profiles').select('*').eq('id', user.id).single();
+  if (error || !data) { showToast('❌','Profile not found. Please contact admin.'); return; }
+  currentTA = data;
+
+  // Sidebar
+  const initials = data.ta_name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('sb-avatar').textContent         = initials;
+  document.getElementById('profile-avatar').textContent    = initials;
+  document.getElementById('sb-name').textContent           = data.ta_name;
+  document.getElementById('page-sub').textContent          = `Welcome back, ${data.ta_name.split(' ')[0]} 👋`;
+
+  // Profile form
+  document.getElementById('p-ta-name').value  = data.ta_name;
+  document.getElementById('p-sir-name').value = data.sir_name;
+  document.getElementById('p-course').value   = data.course;
+  document.getElementById('p-email').value    = data.email;
+  document.getElementById('profile-name-display').textContent  = data.ta_name;
+  document.getElementById('profile-email-display').textContent = data.email;
+
+  // Preview card
+  document.getElementById('prev-ta-name').textContent = data.ta_name;
+  document.getElementById('prev-course').textContent  = data.course;
+  document.getElementById('prev-sir').textContent     = data.sir_name;
+
+  // Sheet URL
+  if (data.google_sheet_url) document.getElementById('sheet-url').value = data.google_sheet_url;
+
+  // Class link
+  renderLinkBox(data.class_link_token);
+}
+
+async function loadAll() {
+  if (!currentTA) return;
+  await loadStudents();
+  updateOverviewStats();
+}
+
+async function loadStudents() {
+  const { data, error } = await sb.from('students').select('*').eq('ta_id', currentTA.id).order('created_at', { ascending: false });
+  allStudents = data || [];
+  renderStudents(allStudents);
+  renderMarksTable(allStudents.filter(s => s.status === 'approved'));
+
+  const pendingCount = allStudents.filter(s=>s.status==='pending').length;
+  const badge = document.getElementById('pending-badge');
+  badge.textContent   = pendingCount;
+  badge.style.display = pendingCount > 0 ? 'inline' : 'none';
+}
+
+// ── OVERVIEW STATS ──
+function updateOverviewStats() {
+  const total    = allStudents.length;
+  const approved = allStudents.filter(s=>s.status==='approved').length;
+  const pending  = allStudents.filter(s=>s.status==='pending').length;
+  document.getElementById('ov-total').textContent    = total;
+  document.getElementById('ov-approved').textContent = approved;
+  document.getElementById('ov-pending').textContent  = pending;
+  document.getElementById('ov-marks').textContent    = '—';
+
+  // Overview link box
+  const ovLinkBox = document.getElementById('ov-link-box');
+  if (currentTA?.class_link_token) {
+    const url = `${window.location.origin}/join.html?ta=${currentTA.class_link_token}`;
+    ovLinkBox.innerHTML = `<div class="link-box"><span class="link-url">${url}</span><button class="copy-btn" onclick="copyLink('${url}')">Copy</button></div>`;
+  }
+
+  // Overview recent students
+  const el = document.getElementById('ov-recent-students');
+  const recent = allStudents.slice(0,3);
+  if (!recent.length) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">👤</div><p>No students yet.</p></div>`; return; }
+  el.innerHTML = `<table><thead><tr><th>Name</th><th>Roll No.</th><th>Status</th></tr></thead><tbody>
+    ${recent.map(s=>`<tr><td>${s.name}</td><td>${s.roll_no}</td><td>${badgeHtml(s.status)}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ── STUDENTS TABLE ──
+function filterStudents(f) {
+  currentFilter = f;
+  ['all','pending','approved','rejected'].forEach(x => {
+    const b = document.getElementById(`f-${x}`);
+    b.className = x===f ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  });
+  const filtered = f==='all' ? allStudents : allStudents.filter(s=>s.status===f);
+  renderStudents(filtered);
+}
+
+function renderStudents(list) {
+  const tbody = document.getElementById('students-tbody');
+  document.getElementById('students-count').textContent = `${list.length} student${list.length!==1?'s':''}`;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👤</div><p>No students found.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map((s,i) => `
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td><strong>${s.name}</strong></td>
+      <td style="font-family:monospace;color:var(--accent)">${s.roll_no}</td>
+      <td style="color:var(--muted);font-size:0.82rem">${s.email || '—'}</td>
+      <td>${badgeHtml(s.status)}</td>
+      <td style="color:var(--muted);font-size:0.8rem">${new Date(s.created_at).toLocaleDateString('en-PK')}</td>
+      <td>
+        <div class="action-btns">
+          ${s.status==='pending' ? `
+            <button class="btn btn-success btn-sm" onclick="updateStudent('${s.id}','approved')">✅ Approve</button>
+            <button class="btn btn-danger  btn-sm" onclick="updateStudent('${s.id}','rejected')">❌ Reject</button>
+          ` : s.status==='approved' ? `
+            <button class="btn btn-danger btn-sm" onclick="updateStudent('${s.id}','rejected')">Remove</button>
+          ` : `
+            <button class="btn btn-ghost btn-sm" onclick="updateStudent('${s.id}','approved')">Re-approve</button>
+          `}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function updateStudent(id, status) {
+  const { error } = await sb.from('students').update({ status }).eq('id', id);
+  if (error) { showToast('❌', 'Failed to update student.'); return; }
+  showToast('✅', `Student ${status}!`);
+  await loadStudents();
+  updateOverviewStats();
+}
+
+function badgeHtml(status) {
+  const map = { pending:'badge-pending', approved:'badge-approved', rejected:'badge-rejected' };
+  const labels = { pending:'⏳ Pending', approved:'✅ Approved', rejected:'❌ Rejected' };
+  return `<span class="badge ${map[status]||''}">${labels[status]||status}</span>`;
+}
+
+// ── MARKS TABLE ──
+function renderMarksTable(students) {
+  const tbody = document.getElementById('marks-tbody');
+  if (!students.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📊</div><p>No approved students yet.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = students.map((s,i) => `
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td><strong>${s.name}</strong></td>
+      <td style="font-family:monospace;color:var(--accent)">${s.roll_no}</td>
+      <td><input class="marks-input" id="mark-${s.id}" type="number" min="0" placeholder="—"/></td>
+      <td style="color:var(--muted)" id="total-${s.id}">—</td>
+      <td><input class="marks-input" id="rem-${s.id}" type="text" placeholder="Optional" style="width:120px"/></td>
+    </tr>
+  `).join('');
+
+  // Set total from input
+  const totalInput = document.getElementById('marks-total');
+  students.forEach(s => {
+    document.getElementById(`total-${s.id}`).textContent = totalInput?.value || 20;
+  });
+  totalInput?.addEventListener('input', () => {
+    students.forEach(s => { document.getElementById(`total-${s.id}`).textContent = totalInput.value; });
+  });
+}
+
+async function saveAllMarks() {
+  const subject = document.getElementById('marks-subject').value.trim();
+  const total   = parseFloat(document.getElementById('marks-total').value) || 20;
+  if (!subject) { showToast('⚠️','Please enter a subject/quiz name.'); return; }
+
+  const approved = allStudents.filter(s=>s.status==='approved');
+  const rows = approved.map(s => ({
+    student_id: s.id,
+    ta_id:      currentTA.id,
+    subject,
+    marks:      parseFloat(document.getElementById(`mark-${s.id}`)?.value) || null,
+    total,
+    remarks:    document.getElementById(`rem-${s.id}`)?.value || null,
+  })).filter(r => r.marks !== null);
+
+  if (!rows.length) { showToast('⚠️','No marks entered.'); return; }
+
+  const { error } = await sb.from('marks').insert(rows);
+  if (error) { showToast('❌','Save failed: ' + error.message); return; }
+
+  showToast('✅', `${rows.length} marks saved! Syncing to Sheets...`);
+  await syncToGoogleSheets(rows, approved, subject, total);
+}
+
+async function syncToGoogleSheets(rows, students, subject, total) {
+  if (!currentTA?.google_sheet_url) {
+    showToast('⚠️','Add your Google Sheet URL in the Sheets section below.');
+    return;
+  }
+  // Call Supabase Edge Function to sync
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/sync-to-sheets`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON },
+    body: JSON.stringify({
+      sheet_url: currentTA.google_sheet_url,
+      ta_name:   currentTA.ta_name,
+      course:    currentTA.course,
+      subject, total,
+      data: rows.map(r => {
+        const s = students.find(x=>x.id===r.student_id);
+        return { name: s?.name, roll_no: s?.roll_no, marks: r.marks, total, remarks: r.remarks };
+      })
+    })
+  });
+  const d = await res.json();
+  if (!res.ok) { showToast('⚠️','Sheets sync failed: ' + (d.error||'Unknown error')); return; }
+  showToast('🎉','Marks synced to Google Sheets!');
+}
+
+async function saveSheetUrl() {
+  const url = document.getElementById('sheet-url').value.trim();
+  if (!url) return;
+  const { error } = await sb.from('ta_profiles').update({ google_sheet_url: url }).eq('id', currentTA.id);
+  if (error) { showToast('❌','Failed to save URL.'); return; }
+  currentTA.google_sheet_url = url;
+  showToast('✅','Google Sheet URL saved!');
+}
+
+// ── CLASS LINK ──
+async function generateLink() {
+  const { data, error } = await sb.rpc('generate_class_token');
+  if (error) { showToast('❌','Failed to generate link.'); return; }
+  const token = data;
+  await sb.from('ta_profiles').update({ class_link_token: token }).eq('id', currentTA.id);
+  currentTA.class_link_token = token;
+  renderLinkBox(token);
+  updateOverviewStats();
+  showToast('🔗','New class link generated!');
+}
+
+function renderLinkBox(token) {
+  const el = document.getElementById('link-display');
+  if (!token) { el.innerHTML = '<p style="color:var(--muted);font-size:0.88rem">No link yet. Click Generate.</p>'; return; }
+  const url = `${window.location.origin}/join.html?ta=${token}`;
+  el.innerHTML = `
+    <div class="link-box">
+      <span class="link-url">${url}</span>
+      <button class="copy-btn" onclick="copyLink('${url}')">📋 Copy</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <a href="https://wa.me/?text=${encodeURIComponent('Join my class on TA Portal: '+url)}" target="_blank" class="btn btn-ghost btn-sm">📱 Share on WhatsApp</a>
+      <a href="mailto:?subject=Join my TA class&body=${encodeURIComponent('Join my class: '+url)}" class="btn btn-ghost btn-sm">✉️ Share via Email</a>
+    </div>
+  `;
+}
+
+function copyLink(url) {
+  navigator.clipboard.writeText(url).then(() => showToast('📋','Link copied!'));
+}
+
+// ── PROFILE ──
+async function saveProfile() {
+  const ta_name  = document.getElementById('p-ta-name').value.trim();
+  const sir_name = document.getElementById('p-sir-name').value.trim();
+  const course   = document.getElementById('p-course').value.trim();
+  if (!ta_name || !sir_name || !course) { showToast('⚠️','Please fill all fields.'); return; }
+
+  const { error } = await sb.from('ta_profiles').update({ ta_name, sir_name, course }).eq('id', currentTA.id);
+  if (error) { showToast('❌','Save failed.'); return; }
+
+  currentTA.ta_name  = ta_name;
+  currentTA.sir_name = sir_name;
+  currentTA.course   = course;
+
+  document.getElementById('sb-name').textContent          = ta_name;
+  document.getElementById('profile-name-display').textContent = ta_name;
+  document.getElementById('prev-ta-name').textContent     = ta_name;
+  document.getElementById('prev-course').textContent      = course;
+  document.getElementById('prev-sir').textContent         = sir_name;
+  const initials = ta_name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('sb-avatar').textContent        = initials;
+  document.getElementById('profile-avatar').textContent   = initials;
+
+  showToast('✅','Profile updated!');
+}
+
+// ── LOGOUT ──
+async function handleLogout() {
+  await sb.auth.signOut();
+  window.location.href = 'login.html';
+}
+
+// ── NAV ──
+const sectionMeta = {
+  overview: { title:'Overview',    sub:'Your TA dashboard at a glance' },
+  link:     { title:'Class Link',  sub:'Share this link with your students' },
+  students: { title:'Students',    sub:'Manage student registrations' },
+  marks:    { title:'Marks',       sub:'Enter marks and sync to Google Sheets' },
+  profile:  { title:'My Profile',  sub:'Update your TA information' },
+};
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(`sec-${id}`).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => { if(n.textContent.toLowerCase().includes(id==='overview'?'overview':id)) n.classList.add('active'); });
+  const meta = sectionMeta[id] || {};
+  document.getElementById('page-title').textContent = meta.title || id;
+  document.getElementById('page-sub').textContent   = meta.sub   || '';
+  closeSidebar();
+}
+
+function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('overlay').classList.add('show'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); }
+
+// ── TOAST ──
+let toastTimer;
+function showToast(icon, msg) {
+  clearTimeout(toastTimer);
+  document.getElementById('toast-icon').textContent = icon;
+  document.getElementById('toast-msg').textContent  = msg;
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>
