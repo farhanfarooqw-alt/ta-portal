@@ -286,6 +286,13 @@
       margin-right:6px; animation:pulse 2s infinite;
     }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .side-list-item {
+    display: block; width: 100%; text-align: left; background: transparent; border: none;
+    color: var(--text, #e4e4e7); font-size: 0.82rem; padding: 8px 10px; border-radius: 6px;
+    cursor: pointer; margin-bottom: 2px; transition: background 0.15s;
+  }
+  .side-list-item:hover { background: var(--surface2, rgba(255,255,255,0.06)); }
+  .col-highlight { background: rgba(99,102,241,0.18) !important; transition: background 0.3s; }
   </style>
 </head>
 <body>
@@ -476,13 +483,16 @@
   <!-- ══════════════ MARKS ══════════════ -->
   <div class="section" id="sec-marks">
 
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:end;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
       <div class="form-field" style="margin:0;flex:1;min-width:180px;">
-        <input class="form-input" id="marks-subject" placeholder="Subject / Quiz name (e.g. Quiz 1)"/>
+        <label style="font-size:0.75rem;color:var(--muted);">New column name (e.g. Quiz 1, Assignment 2)</label>
+        <input class="form-input" id="new-col-subject" placeholder="Subject / Quiz name"/>
       </div>
       <div class="form-field" style="margin:0;width:120px;">
-        <input class="form-input" id="marks-total" type="number" placeholder="Total (e.g. 20)" value="20"/>
+        <label style="font-size:0.75rem;color:var(--muted);">Total marks</label>
+        <input class="form-input" id="new-col-total" type="number" placeholder="e.g. 20" value="20"/>
       </div>
+      <button class="btn btn-ghost" onclick="addMarksColumn()">➕ Add Column</button>
       <button class="btn btn-success" onclick="saveAllMarks()">
         <span class="sync-dot"></span> Save & Sync Sheets
       </button>
@@ -490,40 +500,47 @@
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">📊 Enter Marks</span>
-        <span style="font-size:0.78rem;color:var(--muted)">Only approved students shown</span>
+        <span class="card-title">📊 Gradebook</span>
+        <span style="font-size:0.78rem;color:var(--muted)">Every quiz / assignment stays as its own column — nothing gets overwritten</span>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Roll No.</th>
-              <th>Marks</th>
-              <th>Out of</th>
-              <th>Remarks</th>
-            </tr>
-          </thead>
-          <tbody id="marks-tbody">
-            <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📊</div><p>No approved students yet.</p></div></td></tr>
-          </tbody>
-        </table>
+      <div style="display:flex;gap:0;">
+        <div id="marks-side-list" style="width:150px;flex-shrink:0;border-right:1px solid var(--border,#2a2a35);padding:10px;">
+          <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Jump to</div>
+          <!-- populated by renderGradebook() -->
+        </div>
+        <div class="table-wrap" style="flex:1;min-width:0;">
+          <table id="marks-table">
+            <thead id="marks-thead">
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Roll No.</th>
+              </tr>
+            </thead>
+            <tbody id="marks-tbody">
+              <tr><td colspan="3"><div class="empty-state"><div class="empty-icon">📊</div><p>No approved students yet.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
+
+    <p style="font-size:0.78rem;color:var(--muted);margin-top:10px;">
+      💡 Tip: to edit an old entry, just change the numbers in that column and click "Save & Sync Sheets" again.
+    </p>
 
     <!-- Google Sheets link -->
     <div class="card">
       <div class="card-header"><span class="card-title">🔗 Google Sheets Integration</span></div>
       <div class="card-body">
-        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;">Paste your Google Sheet URL. Marks will auto-sync when you click Save & Sync.</p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <input class="form-input" id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="flex:1;min-width:250px"/>
-          <button class="btn btn-ghost" onclick="saveSheetUrl()">Save URL</button>
-        </div>
-        <p style="font-size:0.75rem;color:var(--muted);margin-top:10px;">
-          ⚠️ Make sure your Sheet is shared with edit access to your Supabase service account email.
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;" id="sheet-status-text">
+          Your Google Sheet will be created automatically the first time you save marks.
         </p>
+        <div id="sheet-link-wrap" style="display:none;">
+          <a id="sheet-link" href="#" target="_blank" class="btn btn-ghost" style="text-decoration:none;display:inline-block;">
+            📄 Open My Google Sheet
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -619,7 +636,7 @@ async function loadTA(user) {
   document.getElementById('prev-sir').textContent     = data.sir_name;
 
   // Sheet URL
-  if (data.google_sheet_url) document.getElementById('sheet-url').value = data.google_sheet_url;
+  updateSheetLinkUI(data.google_sheet_url);
 
   // Class link
   renderLinkBox(data.class_link_token);
@@ -632,15 +649,205 @@ async function loadAll() {
 }
 
 async function loadStudents() {
-  const { data, error } = await sb.from('students').select('*').eq('ta_id', currentTA.id).order('created_at', { ascending: false });
+  const { data, error } = await sb.from('students').select('*').eq('ta_id', currentTA.id).order('roll_no', { ascending: true });
   allStudents = data || [];
   renderStudents(allStudents);
-  renderMarksTable(allStudents.filter(s => s.status === 'approved'));
+  await loadMarksData();
 
   const pendingCount = allStudents.filter(s=>s.status==='pending').length;
   const badge = document.getElementById('pending-badge');
   badge.textContent   = pendingCount;
   badge.style.display = pendingCount > 0 ? 'inline' : 'none';
+}
+
+// ── GRADEBOOK (multi-column marks) ──
+let marksColumns = [];        // [{ subject, total }]
+let marksLookup  = {};        // { [subject]: { [student_id]: { marks, remarks } } }
+
+async function loadMarksData() {
+  const { data, error } = await sb.from('marks').select('*').eq('ta_id', currentTA.id);
+  if (error) { showToast('❌', 'Failed to load marks: ' + error.message); return; }
+
+  const seen = new Map();
+  marksLookup = {};
+  (data || []).forEach(m => {
+    if (!m.subject) return;
+    if (!seen.has(m.subject)) seen.set(m.subject, m.total || 20);
+    if (!marksLookup[m.subject]) marksLookup[m.subject] = {};
+    marksLookup[m.subject][m.student_id] = { marks: m.marks, remarks: m.remarks };
+  });
+  marksColumns = [...seen.entries()].map(([subject, total]) => ({ subject, total }));
+
+  renderGradebook();
+}
+
+function addMarksColumn() {
+  const subject = document.getElementById('new-col-subject').value.trim();
+  const total   = parseFloat(document.getElementById('new-col-total').value) || 20;
+  if (!subject) { showToast('⚠️', 'Please enter a column name.'); return; }
+  if (marksColumns.some(c => c.subject === subject)) {
+    showToast('⚠️', 'A column with that name already exists — scroll right to find it.');
+    return;
+  }
+  marksColumns.push({ subject, total });
+  marksLookup[subject] = {};
+  document.getElementById('new-col-subject').value = '';
+  document.getElementById('new-col-total').value = 20;
+  renderGradebook();
+}
+
+function renderGradebook() {
+  const thead = document.getElementById('marks-thead');
+  const tbody = document.getElementById('marks-tbody');
+  const sideList = document.getElementById('marks-side-list');
+  const approved = allStudents.filter(s => s.status === 'approved');
+
+  // Side "Jump to" list
+  const listHtml = `<div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Jump to</div>` +
+    (marksColumns.length
+      ? marksColumns.map((c, i) => `<button class="side-list-item" onclick="jumpToColumn(${i})">${c.subject}</button>`).join('')
+      : `<div style="font-size:0.78rem;color:var(--muted);">No columns yet</div>`);
+  sideList.innerHTML = listHtml;
+
+  // Header row
+  thead.innerHTML = `<tr>
+    <th>#</th><th>Name</th><th>Roll No.</th>
+    ${marksColumns.map((c,i) => `<th class="col-idx-${i}">${c.subject}<br><span style="font-weight:400;color:var(--muted);font-size:0.72rem">/ ${c.total}</span></th>`).join('')}
+  </tr>`;
+
+  if (!approved.length) {
+    tbody.innerHTML = `<tr><td colspan="${3 + marksColumns.length}"><div class="empty-state"><div class="empty-icon">📊</div><p>No approved students yet.</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = approved.map((s, i) => `
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td><strong>${s.name}</strong></td>
+      <td style="font-family:monospace;color:var(--accent)">${s.roll_no}</td>
+      ${marksColumns.map((c,ci) => {
+        const existing = marksLookup[c.subject]?.[s.id];
+        return `<td class="col-idx-${ci}"><input class="marks-input" data-subject="${c.subject}" data-student="${s.id}"
+                  type="number" min="0" placeholder="—" style="width:70px"
+                  value="${existing?.marks ?? ''}"/></td>`;
+      }).join('')}
+    </tr>
+  `).join('');
+}
+
+function jumpToColumn(index) {
+  const cells = document.querySelectorAll(`.col-idx-${index}`);
+  if (!cells.length) return;
+  cells[0].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  cells.forEach(c => c.classList.add('col-highlight'));
+  setTimeout(() => cells.forEach(c => c.classList.remove('col-highlight')), 1200);
+}
+
+function extractSheetId(url) {
+  if (!url) return null;
+  const m = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  return m ? m[1] : null;
+}
+
+function updateSheetLinkUI(url) {
+  const statusText = document.getElementById('sheet-status-text');
+  const linkWrap    = document.getElementById('sheet-link-wrap');
+  const link         = document.getElementById('sheet-link');
+  if (url) {
+    statusText.textContent = 'Your marks are synced to this Google Sheet:';
+    link.href = url;
+    linkWrap.style.display = 'block';
+  } else {
+    statusText.textContent = 'Your Google Sheet will be created automatically the first time you save marks.';
+    linkWrap.style.display = 'none';
+  }
+}
+
+async function saveAllMarks() {
+  if (!marksColumns.length) { showToast('⚠️', 'Add at least one column first.'); return; }
+
+  const approved = allStudents.filter(s => s.status === 'approved');
+  const allRows = [];
+
+  document.querySelectorAll('#marks-tbody input.marks-input').forEach(input => {
+    const val = parseFloat(input.value);
+    if (isNaN(val)) return;
+    allRows.push({
+      student_id: input.dataset.student,
+      ta_id:      currentTA.id,
+      subject:    input.dataset.subject,
+      marks:      val,
+      total:      marksColumns.find(c => c.subject === input.dataset.subject)?.total || 20,
+      remarks:    null,
+    });
+  });
+
+  if (!allRows.length) { showToast('⚠️', 'No marks entered.'); return; }
+
+  // Replace every touched (subject) column's data cleanly — avoids duplicate rows
+  // while leaving every OTHER column/subject untouched.
+  const subjects = [...new Set(allRows.map(r => r.subject))];
+  const { error: delErr } = await sb.from('marks').delete().eq('ta_id', currentTA.id).in('subject', subjects);
+  if (delErr) { showToast('❌', 'Save failed: ' + delErr.message); return; }
+
+  const { error } = await sb.from('marks').insert(allRows);
+  if (error) { showToast('❌', 'Save failed: ' + error.message); return; }
+
+  showToast('✅', `Saved ${allRows.length} marks across ${subjects.length} column(s)! Syncing to Sheets...`);
+  await loadMarksData();
+  await syncToGoogleSheets(approved);
+}
+
+async function syncToGoogleSheets(approvedStudents) {
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwK3mRWumYAnzD3bghfD7NfbyZwC8wW5XtG9ZCs_virRZOWKgN7BkyH2whKE0_nLPuxAg/exec';
+
+  // Send the ENTIRE current gradebook (all columns, alphabetical order) so the
+  // sheet always mirrors the dashboard exactly — Quiz 1, Quiz 2, etc. all as
+  // their own columns, never mixed together.
+  const students = approvedStudents.map(s => ({ name: s.name, roll_no: s.roll_no }));
+  const columns  = marksColumns.map(c => c.subject);
+  const grid = {};
+  marksColumns.forEach(c => {
+    grid[c.subject] = {};
+    approvedStudents.forEach(s => {
+      const cell = marksLookup[c.subject]?.[s.id];
+      grid[c.subject][s.roll_no] = cell?.marks ?? '';
+    });
+  });
+
+  const payload = {
+    ta_id:    currentTA.id,
+    ta_name:  currentTA.ta_name,
+    ta_email: currentTA.email,
+    sheet_id: extractSheetId(currentTA.google_sheet_url),
+    students,
+    columns,
+    grid,
+  };
+
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body:    JSON.stringify(payload),
+      mode:    'no-cors', // Google Apps Script requires this
+    });
+    showToast('🎉', 'Marks synced to Google Sheets!');
+
+    // If this was the first sync, the sheet was just created — refresh to pick up the link.
+    if (!currentTA.google_sheet_url) {
+      setTimeout(async () => {
+        const { data } = await sb.from('ta_profiles').select('google_sheet_url').eq('id', currentTA.id).single();
+        if (data?.google_sheet_url) {
+          currentTA.google_sheet_url = data.google_sheet_url;
+          updateSheetLinkUI(data.google_sheet_url);
+          showToast('📄', 'Your Google Sheet is ready!');
+        }
+      }, 4000);
+    }
+  } catch (err) {
+    showToast('⚠️', 'Sync failed: ' + err.message);
+  }
 }
 
 // ── OVERVIEW STATS ──
@@ -723,92 +930,6 @@ function badgeHtml(status) {
   const map = { pending:'badge-pending', approved:'badge-approved', rejected:'badge-rejected' };
   const labels = { pending:'⏳ Pending', approved:'✅ Approved', rejected:'❌ Rejected' };
   return `<span class="badge ${map[status]||''}">${labels[status]||status}</span>`;
-}
-
-// ── MARKS TABLE ──
-function renderMarksTable(students) {
-  const tbody = document.getElementById('marks-tbody');
-  if (!students.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📊</div><p>No approved students yet.</p></div></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = students.map((s,i) => `
-    <tr>
-      <td style="color:var(--muted)">${i+1}</td>
-      <td><strong>${s.name}</strong></td>
-      <td style="font-family:monospace;color:var(--accent)">${s.roll_no}</td>
-      <td><input class="marks-input" id="mark-${s.id}" type="number" min="0" placeholder="—"/></td>
-      <td style="color:var(--muted)" id="total-${s.id}">—</td>
-      <td><input class="marks-input" id="rem-${s.id}" type="text" placeholder="Optional" style="width:120px"/></td>
-    </tr>
-  `).join('');
-
-  // Set total from input
-  const totalInput = document.getElementById('marks-total');
-  students.forEach(s => {
-    document.getElementById(`total-${s.id}`).textContent = totalInput?.value || 20;
-  });
-  totalInput?.addEventListener('input', () => {
-    students.forEach(s => { document.getElementById(`total-${s.id}`).textContent = totalInput.value; });
-  });
-}
-
-async function saveAllMarks() {
-  const subject = document.getElementById('marks-subject').value.trim();
-  const total   = parseFloat(document.getElementById('marks-total').value) || 20;
-  if (!subject) { showToast('⚠️','Please enter a subject/quiz name.'); return; }
-
-  const approved = allStudents.filter(s=>s.status==='approved');
-  const rows = approved.map(s => ({
-    student_id: s.id,
-    ta_id:      currentTA.id,
-    subject,
-    marks:      parseFloat(document.getElementById(`mark-${s.id}`)?.value) || null,
-    total,
-    remarks:    document.getElementById(`rem-${s.id}`)?.value || null,
-  })).filter(r => r.marks !== null);
-
-  if (!rows.length) { showToast('⚠️','No marks entered.'); return; }
-
-  const { error } = await sb.from('marks').insert(rows);
-  if (error) { showToast('❌','Save failed: ' + error.message); return; }
-
-  showToast('✅', `${rows.length} marks saved! Syncing to Sheets...`);
-  await syncToGoogleSheets(rows, approved, subject, total);
-}
-
-async function syncToGoogleSheets(rows, students, subject, total) {
-  if (!currentTA?.google_sheet_url) {
-    showToast('⚠️','Add your Google Sheet URL in the Sheets section below.');
-    return;
-  }
-  // Call Supabase Edge Function to sync
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/sync-to-sheets`, {
-    method: 'POST',
-    headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON },
-    body: JSON.stringify({
-      sheet_url: currentTA.google_sheet_url,
-      ta_name:   currentTA.ta_name,
-      course:    currentTA.course,
-      subject, total,
-      data: rows.map(r => {
-        const s = students.find(x=>x.id===r.student_id);
-        return { name: s?.name, roll_no: s?.roll_no, marks: r.marks, total, remarks: r.remarks };
-      })
-    })
-  });
-  const d = await res.json();
-  if (!res.ok) { showToast('⚠️','Sheets sync failed: ' + (d.error||'Unknown error')); return; }
-  showToast('🎉','Marks synced to Google Sheets!');
-}
-
-async function saveSheetUrl() {
-  const url = document.getElementById('sheet-url').value.trim();
-  if (!url) return;
-  const { error } = await sb.from('ta_profiles').update({ google_sheet_url: url }).eq('id', currentTA.id);
-  if (error) { showToast('❌','Failed to save URL.'); return; }
-  currentTA.google_sheet_url = url;
-  showToast('✅','Google Sheet URL saved!');
 }
 
 // ── CLASS LINK ──

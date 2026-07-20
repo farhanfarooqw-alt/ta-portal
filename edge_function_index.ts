@@ -27,10 +27,10 @@ serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { ta_name, ta_email, teacher_email, course } = body;
+    const { ta_name, ta_email, teacher_email, course, sir_name, auth_user_id } = body;
 
     // Validate required fields
-    if (!ta_name || !ta_email || !teacher_email || !course) {
+    if (!ta_name || !ta_email || !teacher_email || !course || !auth_user_id) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -72,6 +72,8 @@ serve(async (req: Request) => {
         ta_email,
         teacher_email,
         course,
+        sir_name: sir_name || null,
+        auth_user_id,
         approval_token: approvalToken,
         status: "pending",
       });

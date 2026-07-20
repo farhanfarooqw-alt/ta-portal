@@ -146,7 +146,7 @@
         <!-- Signup Form -->
         <div id="signup-form-wrap">
           <div class="form-title">Create Account 🎓</div>
-          <div class="form-sub">Fill in your details — your teacher will approve your TA account.</div>
+          <div class="form-sub">Fill in your details to create your TA account.</div>
 
           <div class="alert" id="signup-error"></div>
 
@@ -196,44 +196,13 @@
             </div>
           </div>
 
-          <!-- Teacher Email — highlighted -->
-          <div class="teacher-field">
-            <div class="field-tag">🔐 Teacher Verification Required</div>
-            <div class="field">
-              <label>Your Teacher's Email</label>
-              <div class="input-wrap">
-                <span class="icon">🧑‍🏫</span>
-                <input type="email" id="signup-teacher-email" placeholder="teacher@university.edu"/>
-              </div>
-            </div>
-            <p style="font-size:0.75rem;color:var(--muted);margin-top:8px;line-height:1.5">
-              ⚠️ Your teacher will receive an approval email. Your account will only be activated after they approve.
-            </p>
-          </div>
-
           <button class="btn-submit" id="signup-btn" onclick="handleSignup()">
             <span class="spinner" id="signup-spinner"></span>
-            <span id="signup-btn-text">Send Approval Request →</span>
+            <span id="signup-btn-text">Create Account →</span>
           </button>
 
           <div class="bottom-note">
             Already have an account? <a onclick="switchTab('login')">Login</a>
-          </div>
-        </div>
-
-        <!-- Pending Screen (shown after signup) -->
-        <div class="pending-screen" id="pending-screen">
-          <div class="pending-icon">📧</div>
-          <h2>Request Sent!</h2>
-          <p>An approval email has been sent to your teacher.</p>
-          <p>Your TA account will be activated once they approve.</p>
-          <div class="pending-steps">
-            <p>✅ <strong>Step 1:</strong> Your request has been submitted</p>
-            <p>⏳ <strong>Step 2:</strong> Teacher reviews & approves via email</p>
-            <p>🎉 <strong>Step 3:</strong> You can login and access dashboard</p>
-          </div>
-          <div style="margin-top:20px">
-            <a onclick="switchTab('login')" style="color:var(--accent);cursor:pointer;font-size:0.88rem">← Go to Login</a>
           </div>
         </div>
 
@@ -325,22 +294,18 @@
     // ── SIGNUP ──
     async function handleSignup() {
       clearAlert('signup-error');
-      const taName       = document.getElementById('signup-ta-name').value.trim();
-      const sirName      = document.getElementById('signup-sir-name').value.trim();
-      const course       = document.getElementById('signup-course').value.trim();
-      const email        = document.getElementById('signup-email').value.trim();
-      const pass         = document.getElementById('signup-password').value;
-      const teacherEmail = document.getElementById('signup-teacher-email').value.trim();
+      const taName  = document.getElementById('signup-ta-name').value.trim();
+      const sirName = document.getElementById('signup-sir-name').value.trim();
+      const course  = document.getElementById('signup-course').value.trim();
+      const email   = document.getElementById('signup-email').value.trim();
+      const pass    = document.getElementById('signup-password').value;
 
       // Validate
-      if (!taName || !sirName || !course || !email || !pass || !teacherEmail) {
-        showAlert('signup-error', 'error', '⚠️ Please fill in all fields including Teacher Email.'); return;
+      if (!taName || !sirName || !course || !email || !pass) {
+        showAlert('signup-error', 'error', '⚠️ Please fill in all fields.'); return;
       }
       if (pass.length < 8) {
         showAlert('signup-error', 'error', 'Password must be at least 8 characters.'); return;
-      }
-      if (!teacherEmail.includes('@')) {
-        showAlert('signup-error', 'error', 'Please enter a valid teacher email.'); return;
       }
 
       setLoading('signup', true);
@@ -356,8 +321,8 @@
         showAlert('signup-error', 'error', authErr.message); return;
       }
 
-      // Step 2 — Call Edge Function to insert into pending_tas + send teacher email
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-ta-approval`, {
+      // Step 2 — Create the TA profile immediately (no approval needed)
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-ta-profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -365,13 +330,11 @@
           'Authorization': `Bearer ${SUPABASE_ANON}`
         },
         body: JSON.stringify({
-          ta_name:       taName,
-          ta_email:      email,
-          teacher_email: teacherEmail,
+          ta_name:      taName,
+          ta_email:     email,
           course,
-          sir_name:      sirName,
-          auth_user_id:  authData.user.id,
-          password:      pass
+          sir_name:     sirName,
+          auth_user_id: authData.user.id
         })
       });
 
@@ -382,9 +345,9 @@
         showAlert('signup-error', 'error', result.error || 'Something went wrong. Please try again.'); return;
       }
 
-      // Step 3 — Show pending screen
-      document.getElementById('signup-form-wrap').style.display = 'none';
-      document.getElementById('pending-screen').style.display   = 'block';
+      // Step 3 — Straight to dashboard
+      showAlert('signup-error', 'success', 'Account created! Redirecting...');
+      setTimeout(() => window.location.href = 'dashboard.html', 900);
     }
 
     // ── SESSION CHECK ──
