@@ -335,6 +335,12 @@
     <div class="logout-btn" onclick="handleLogout()">
       <span>🚪</span> Logout
     </div>
+    <div style="font-size:0.72rem;color:var(--muted);text-align:center;margin-top:10px;line-height:1.6;">
+      Need help?<br/>
+      📧 <a href="mailto:farhanfarooqw@gmail.com" style="color:var(--accent);text-decoration:none;">Email</a>
+      &nbsp;·&nbsp;
+      💬 <a href="https://wa.me/923149264891" target="_blank" style="color:var(--accent);text-decoration:none;">WhatsApp</a>
+    </div>
   </div>
 </aside>
 
@@ -446,12 +452,13 @@
   <!-- ══════════════ STUDENTS ══════════════ -->
   <div class="section" id="sec-students">
 
-    <!-- Filter tabs -->
-    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+    <!-- Filter tabs + Search -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
       <button class="btn btn-primary btn-sm" onclick="filterStudents('all')"    id="f-all">All</button>
       <button class="btn btn-ghost  btn-sm" onclick="filterStudents('pending')" id="f-pending">⏳ Pending</button>
       <button class="btn btn-ghost  btn-sm" onclick="filterStudents('approved')"id="f-approved">✅ Approved</button>
       <button class="btn btn-ghost  btn-sm" onclick="filterStudents('rejected')"id="f-rejected">❌ Rejected</button>
+      <input class="form-input" id="student-search" placeholder="🔍 Search by name or roll no..." style="flex:1;min-width:180px;margin-left:auto" oninput="filterStudents(currentFilter)"/>
     </div>
 
     <div class="card">
@@ -496,6 +503,10 @@
       <button class="btn btn-success" onclick="saveAllMarks()">
         <span class="sync-dot"></span> Save & Sync Sheets
       </button>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <input class="form-input" id="gradebook-search" placeholder="🔍 Search by name or roll no..." style="max-width:320px" oninput="renderGradebook()"/>
     </div>
 
     <div class="card">
@@ -700,7 +711,14 @@ function renderGradebook() {
   const thead = document.getElementById('marks-thead');
   const tbody = document.getElementById('marks-tbody');
   const sideList = document.getElementById('marks-side-list');
-  const approved = allStudents.filter(s => s.status === 'approved');
+  let approved = allStudents.filter(s => s.status === 'approved');
+
+  const q = document.getElementById('gradebook-search')?.value.trim().toLowerCase();
+  if (q) {
+    approved = approved.filter(s =>
+      s.name.toLowerCase().includes(q) || s.roll_no.toLowerCase().includes(q)
+    );
+  }
 
   // Side "Jump to" list
   const listHtml = `<div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Jump to</div>` +
@@ -729,7 +747,7 @@ function renderGradebook() {
         const existing = marksLookup[c.subject]?.[s.id];
         return `<td class="col-idx-${ci}"><input class="marks-input" data-subject="${c.subject}" data-student="${s.id}"
                   type="number" min="0" placeholder="—" style="width:70px"
-                  value="${existing?.marks ?? ''}"/></td>`;
+                  value="${existing?.marks ?? ''}" onchange="updateMarksCell(this)"/></td>`;
       }).join('')}
     </tr>
   `).join('');
@@ -741,6 +759,17 @@ function jumpToColumn(index) {
   cells[0].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   cells.forEach(c => c.classList.add('col-highlight'));
   setTimeout(() => cells.forEach(c => c.classList.remove('col-highlight')), 1200);
+}
+
+// Keep marksLookup (the real source of truth) in sync as the TA types —
+// this way, saving always covers every approved student, even ones
+// currently hidden by an active search filter.
+function updateMarksCell(input) {
+  const subject = input.dataset.subject;
+  const studentId = input.dataset.student;
+  const val = input.value === '' ? null : parseFloat(input.value);
+  if (!marksLookup[subject]) marksLookup[subject] = {};
+  marksLookup[subject][studentId] = { marks: isNaN(val) ? null : val, remarks: null };
 }
 
 function extractSheetId(url) {
@@ -766,27 +795,31 @@ function updateSheetLinkUI(url) {
 async function saveAllMarks() {
   if (!marksColumns.length) { showToast('⚠️', 'Add at least one column first.'); return; }
 
+  // Always use the FULL approved student list (not the search-filtered view)
+  // so a search doesn't accidentally wipe out hidden students' marks.
   const approved = allStudents.filter(s => s.status === 'approved');
   const allRows = [];
 
-  document.querySelectorAll('#marks-tbody input.marks-input').forEach(input => {
-    const val = parseFloat(input.value);
-    if (isNaN(val)) return;
-    allRows.push({
-      student_id: input.dataset.student,
-      ta_id:      currentTA.id,
-      subject:    input.dataset.subject,
-      marks:      val,
-      total:      marksColumns.find(c => c.subject === input.dataset.subject)?.total || 20,
-      remarks:    null,
+  marksColumns.forEach(col => {
+    approved.forEach(s => {
+      const cell = marksLookup[col.subject]?.[s.id];
+      if (!cell || cell.marks === null || cell.marks === undefined || isNaN(cell.marks)) return;
+      allRows.push({
+        student_id: s.id,
+        ta_id:      currentTA.id,
+        subject:    col.subject,
+        marks:      cell.marks,
+        total:      col.total,
+        remarks:    cell.remarks || null,
+      });
     });
   });
 
   if (!allRows.length) { showToast('⚠️', 'No marks entered.'); return; }
 
-  // Replace every touched (subject) column's data cleanly — avoids duplicate rows
-  // while leaving every OTHER column/subject untouched.
-  const subjects = [...new Set(allRows.map(r => r.subject))];
+  // Replace every column's data cleanly — avoids duplicate rows while every
+  // student (searched or not) keeps their marks.
+  const subjects = marksColumns.map(c => c.subject);
   const { error: delErr } = await sb.from('marks').delete().eq('ta_id', currentTA.id).in('subject', subjects);
   if (delErr) { showToast('❌', 'Save failed: ' + delErr.message); return; }
 
@@ -883,7 +916,14 @@ function filterStudents(f) {
     const b = document.getElementById(`f-${x}`);
     b.className = x===f ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
   });
-  const filtered = f==='all' ? allStudents : allStudents.filter(s=>s.status===f);
+  let filtered = f==='all' ? allStudents : allStudents.filter(s=>s.status===f);
+
+  const q = document.getElementById('student-search')?.value.trim().toLowerCase();
+  if (q) {
+    filtered = filtered.filter(s =>
+      s.name.toLowerCase().includes(q) || s.roll_no.toLowerCase().includes(q)
+    );
+  }
   renderStudents(filtered);
 }
 
