@@ -130,7 +130,7 @@
             <button class="pw-toggle" onclick="togglePw('login-password', this)">👁️</button>
           </div>
         </div>
-        <div class="forgot"><a href="#">Forgot password?</a></div>
+        <div class="forgot"><a onclick="showForgotPanel()" style="cursor:pointer">Forgot password?</a></div>
         <button class="btn-submit" id="login-btn" onclick="handleLogin()">
           <span class="spinner" id="login-spinner"></span>
           <span id="login-btn-text">Login to Dashboard</span>
@@ -140,7 +140,27 @@
         </div>
       </div>
 
-      <!-- ══ SIGNUP ══ -->
+      <!-- ══ FORGOT PASSWORD ══ -->
+      <div class="panel" id="panel-forgot" style="display:none;">
+        <div class="form-sub" style="margin-bottom:16px;">Enter your account email — we'll send you a reset link.</div>
+        <div class="alert" id="forgot-error" style="display:none;"></div>
+        <div class="field">
+          <label>Email</label>
+          <div class="input-wrap">
+            <span class="icon">✉️</span>
+            <input type="email" id="forgot-email" placeholder="ta@university.edu"/>
+          </div>
+        </div>
+        <button class="btn-submit" id="forgot-btn" onclick="handleForgotPassword()">
+          <span class="spinner" id="forgot-spinner"></span>
+          <span id="forgot-btn-text">Send Reset Link →</span>
+        </button>
+        <div class="bottom-note">
+          <a onclick="hideForgotPanel()" style="cursor:pointer">← Back to Login</a>
+        </div>
+      </div>
+
+      <!-- ══════════════ SIGNUP ══════════════ -->
       <div class="panel" id="panel-signup">
 
         <!-- Signup Form -->
@@ -155,14 +175,14 @@
               <label>Your Name (TA)</label>
               <div class="input-wrap">
                 <span class="icon">👤</span>
-                <input type="text" id="signup-ta-name" placeholder="e.g. Enter Your Name"/>
+                <input type="text" id="signup-ta-name" placeholder="e.g. Your Name"/>
               </div>
             </div>
             <div class="field">
               <label>Sir's Name</label>
               <div class="input-wrap">
-            
-                <input type="text" id="signup-sir-name" placeholder="e.g. Sir Ahmad"/>
+                <span class="icon"></span>
+                <input type="text" id="signup-sir-name" placeholder="e.g. Sir Name"/>
               </div>
             </div>
           </div>
@@ -171,7 +191,7 @@
             <label>Subject / Course</label>
             <div class="input-wrap">
               <span class="icon">📚</span>
-              <input type="text" id="signup-course" placeholder="e.g. Data Structures—3B"/>
+              <input type="text" id="signup-course" placeholder="e.g. Data Structures — CS-3A"/>
             </div>
           </div>
 
@@ -218,6 +238,7 @@
 
     // ── TAB SWITCH ──
     function switchTab(tab) {
+      hideForgotPanel(false);
       document.querySelectorAll('.tab').forEach((t, i) => {
         t.classList.toggle('active', tab === 'login' ? i === 0 : i === 1);
       });
@@ -229,6 +250,35 @@
         document.getElementById('signup-form-wrap').style.display = 'block';
         document.getElementById('pending-screen').style.display = 'none';
       }
+    }
+
+    // ── FORGOT PASSWORD ──
+    function showForgotPanel() {
+      document.getElementById('panel-login').classList.remove('active');
+      document.getElementById('panel-signup').classList.remove('active');
+      document.getElementById('panel-forgot').style.display = 'block';
+    }
+    function hideForgotPanel(restoreLogin = true) {
+      document.getElementById('panel-forgot').style.display = 'none';
+      if (restoreLogin) document.getElementById('panel-login').classList.add('active');
+    }
+
+    async function handleForgotPassword() {
+      clearAlert('forgot-error');
+      const email = document.getElementById('forgot-email').value.trim();
+      if (!email || !email.includes('@')) {
+        showAlert('forgot-error', 'error', 'Please enter a valid email.'); return;
+      }
+
+      setLoading('forgot', true);
+      const redirectTo = new URL('reset-password.html', window.location.href).toString();
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+      setLoading('forgot', false);
+
+      if (error) {
+        showAlert('forgot-error', 'error', error.message); return;
+      }
+      showAlert('forgot-error', 'success', '✅ If that email is registered, a reset link has been sent. Check your inbox.');
     }
 
     function togglePw(id, btn) {
@@ -356,5 +406,10 @@
       if (session) window.location.href = 'dashboard.html';
     })();
   </script>
+
+  <div style="position:fixed;bottom:12px;left:0;right:0;text-align:center;font-size:0.78rem;color:var(--muted);z-index:2;">
+    Need help? 📧 <a href="mailto:farhanfarooqw@gmail.com" style="color:var(--accent);text-decoration:none;">farhanfarooqw@gmail.com</a>
+    &nbsp;·&nbsp; 💬 <a href="https://wa.me/923149264891" target="_blank" style="color:var(--accent);text-decoration:none;">+92 314 9264891</a>
+  </div>
 </body>
 </html>
