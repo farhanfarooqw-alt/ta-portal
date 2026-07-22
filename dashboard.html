@@ -452,6 +452,32 @@
   <!-- ══════════════ STUDENTS ══════════════ -->
   <div class="section" id="sec-students">
 
+    <!-- Add Student -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+      <button class="btn btn-primary btn-sm" onclick="toggleAddStudentForm()">➕ Add Student</button>
+    </div>
+    <div class="card" id="add-student-card" style="display:none;margin-bottom:20px;">
+      <div class="card-header"><span class="card-title">➕ Add Student Manually</span></div>
+      <div class="card-body">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">
+          <div class="form-field" style="margin:0;flex:1;min-width:160px;">
+            <label style="font-size:0.75rem;color:var(--muted);">Full Name</label>
+            <input class="form-input" id="add-student-name" placeholder="e.g. Ali Khan"/>
+          </div>
+          <div class="form-field" style="margin:0;width:140px;">
+            <label style="font-size:0.75rem;color:var(--muted);">Roll Number</label>
+            <input class="form-input" id="add-student-roll" placeholder="e.g. 25F-0804"/>
+          </div>
+          <div class="form-field" style="margin:0;flex:1;min-width:160px;">
+            <label style="font-size:0.75rem;color:var(--muted);">Email (optional)</label>
+            <input class="form-input" id="add-student-email" placeholder="student@email.com"/>
+          </div>
+          <button class="btn btn-success" onclick="addStudentManually()">Add Student</button>
+        </div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-top:10px;">This student will be added as already <strong>Approved</strong> — useful if they couldn't join via the link.</p>
+      </div>
+    </div>
+
     <!-- Filter tabs + Search -->
     <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
       <button class="btn btn-primary btn-sm" onclick="filterStudents('all')"    id="f-all">All</button>
@@ -938,6 +964,43 @@ function updateOverviewStats() {
 }
 
 // ── STUDENTS TABLE ──
+function toggleAddStudentForm() {
+  const card = document.getElementById('add-student-card');
+  card.style.display = card.style.display === 'none' ? 'block' : 'none';
+}
+
+async function addStudentManually() {
+  const name  = document.getElementById('add-student-name').value.trim();
+  const roll  = document.getElementById('add-student-roll').value.trim();
+  const email = document.getElementById('add-student-email').value.trim();
+
+  if (!name || !roll) { showToast('⚠️', 'Please enter both name and roll number.'); return; }
+
+  const { error } = await sb.from('students').insert({
+    ta_id: currentTA.id,
+    name,
+    roll_no: roll,
+    email: email || null,
+    status: 'approved',
+  });
+
+  if (error) {
+    if (error.message.includes('duplicate') || error.code === '23505') {
+      showToast('❌', 'A student with this roll number already exists.');
+    } else {
+      showToast('❌', 'Failed to add student: ' + error.message);
+    }
+    return;
+  }
+
+  showToast('✅', `${name} added successfully!`);
+  document.getElementById('add-student-name').value = '';
+  document.getElementById('add-student-roll').value = '';
+  document.getElementById('add-student-email').value = '';
+  document.getElementById('add-student-card').style.display = 'none';
+  await loadStudents();
+}
+
 function filterStudents(f) {
   currentFilter = f;
   ['all','pending','approved','rejected'].forEach(x => {
