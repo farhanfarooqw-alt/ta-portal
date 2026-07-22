@@ -619,7 +619,35 @@ let currentFilter = 'all';
   if (!session) { window.location.href = 'login.html'; return; }
   await loadTA(session.user);
   await loadAll();
+  setupRealtimeSync();
 })();
+
+// ── REALTIME SYNC (live updates across devices) ──
+// Whenever another device/tab changes this TA's students or marks,
+// silently refresh the data so everyone stays in sync without a manual reload.
+let realtimeDebounce;
+function setupRealtimeSync() {
+  if (!currentTA) return;
+
+  sb.channel('ta-portal-sync')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'students', filter: `ta_id=eq.${currentTA.id}` },
+      () => debouncedRefresh()
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'marks', filter: `ta_id=eq.${currentTA.id}` },
+      () => debouncedRefresh()
+    )
+    .subscribe();
+}
+
+function debouncedRefresh() {
+  clearTimeout(realtimeDebounce);
+  realtimeDebounce = setTimeout(async () => {
+    await loadAll();
+    showToast('🔄', 'Updated with the latest changes');
+  }, 600);
+}
 
 async function loadTA(user) {
   const { data, error } = await sb.from('ta_profiles').select('*').eq('id', user.id).single();
