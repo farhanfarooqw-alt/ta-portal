@@ -36,7 +36,7 @@ serve(async (req: Request) => {
     // Fetch ONLY public info — no email, no id
     const { data, error } = await supabase
       .from("ta_profiles")
-      .select("ta_name, sir_name, course, class_link_token")
+      .select("ta_name, sir_name, course, class_link_token, avatar_url")
       .eq("class_link_token", token)
       .single();
 
@@ -48,11 +48,12 @@ serve(async (req: Request) => {
     }
 
     // Return ONLY what student needs to see
-    return new Response(
+   return new Response(
       JSON.stringify({
-        ta_name:   data.ta_name,
-        sir_name:  data.sir_name,
-        course:    data.course,
+        ta_name:    data.ta_name,
+        sir_name:   data.sir_name,
+        course:     data.course,
+        avatar_url: data.avatar_url,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

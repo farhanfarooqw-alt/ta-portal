@@ -20,6 +20,10 @@
       --border:  rgba(79,142,247,0.13);
       --sidebar: 240px;
     }
+    body.compact-sidebar { --sidebar: 170px; }
+    body.compact-sidebar .nav-item { font-size: 0.8rem; padding: 10px 14px; gap: 8px; }
+    body.compact-sidebar .sidebar-logo { font-size: 1.05rem; padding: 20px 16px 14px; }
+    body.compact-sidebar .nav-icon { font-size: 1rem; width: 18px; }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; overflow-x: hidden; }
@@ -31,7 +35,7 @@
       border-right: 1px solid var(--border);
       display: flex; flex-direction: column;
       position: fixed; top: 0; left: 0; bottom: 0;
-      z-index: 50; transition: transform 0.3s;
+      z-index: 50; transition: transform 0.3s, width 0.2s;
     }
     .sidebar-logo {
       padding: 28px 24px 20px;
@@ -52,6 +56,7 @@
       display: flex; align-items: center; justify-content: center;
       font-family: 'Syne', sans-serif; font-weight: 800;
       font-size: 0.85rem; color: #fff; flex-shrink: 0;
+      overflow: hidden;
     }
     .ta-mini-info { overflow: hidden; }
     .ta-mini-name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -93,6 +98,7 @@
       margin-left: var(--sidebar);
       flex: 1; padding: 32px 36px;
       min-height: 100vh;
+      transition: margin-left 0.2s;
     }
 
     /* ── TOP BAR ── */
@@ -197,7 +203,19 @@
 
     /* ── TABLE ── */
     .table-wrap { overflow-x: auto; }
+    .gradebook-card { overflow: visible; }
+    .gradebook-card .table-wrap { max-height: 65vh; overflow-y: auto; }
     table { width:100%; border-collapse:collapse; }
+    #marks-table { table-layout: fixed; width: 100%; border-collapse: separate; border-spacing: 0; }
+    #marks-table th, #marks-table td { border-bottom: 1px solid var(--border, rgba(79,142,247,0.15)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #marks-table thead th {
+      position: sticky; top: 0; z-index: 4; background: var(--card, #1a2235);
+    }
+    #marks-table th:nth-child(1), #marks-table td:nth-child(1) { width: 15%; }
+    #marks-table th:nth-child(2), #marks-table td:nth-child(2) { width: 10%; }
+    #marks-table .marks-input { width: 100%; max-width: 60px; font-size: 0.8rem; padding: 6px 4px; text-align: center; }
+    #marks-table th { font-size: 0.68rem; padding: 8px 6px; }
+    #marks-table td { padding: 8px 6px; }
     th {
       text-align:left; font-size:0.75rem; text-transform:uppercase;
       letter-spacing:1.5px; color:var(--muted); font-weight:600;
@@ -287,9 +305,9 @@
     }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
   .side-list-item {
-    display: block; width: 100%; text-align: left; background: transparent; border: none;
-    color: var(--text, #e4e4e7); font-size: 0.82rem; padding: 8px 10px; border-radius: 6px;
-    cursor: pointer; margin-bottom: 2px; transition: background 0.15s;
+    display: inline-block; text-align: left; background: var(--surface, rgba(255,255,255,0.04)); border: 1px solid var(--border, rgba(79,142,247,0.15));
+    color: var(--text, #e4e4e7); font-size: 0.78rem; padding: 6px 12px; border-radius: 100px;
+    cursor: pointer; transition: background 0.15s; white-space: nowrap;
   }
   .side-list-item:hover { background: var(--surface2, rgba(255,255,255,0.06)); }
   .col-highlight { background: rgba(99,102,241,0.18) !important; transition: background 0.3s; }
@@ -527,7 +545,7 @@
       </div>
       <button class="btn btn-ghost" onclick="addMarksColumn()">➕ Add Column</button>
       <button class="btn btn-success" onclick="saveAllMarks()">
-        <span class="sync-dot"></span> Save & Sync Sheets
+        <span class="sync-dot"></span> Sync to Google Sheets
       </button>
     </div>
 
@@ -535,35 +553,31 @@
       <input class="form-input" id="gradebook-search" placeholder="🔍 Search by name or roll no..." style="max-width:320px" oninput="renderGradebook()"/>
     </div>
 
-    <div class="card">
+    <div class="card gradebook-card">
       <div class="card-header">
         <span class="card-title">📊 Gradebook</span>
         <span style="font-size:0.78rem;color:var(--muted)">Every quiz / assignment stays as its own column — nothing gets overwritten</span>
       </div>
-      <div style="display:flex;gap:0;">
-        <div id="marks-side-list" style="width:150px;flex-shrink:0;border-right:1px solid var(--border,#2a2a35);padding:10px;">
-          <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Jump to</div>
-          <!-- populated by renderGradebook() -->
-        </div>
-        <div class="table-wrap" style="flex:1;min-width:0;">
-          <table id="marks-table">
-            <thead id="marks-thead">
-              <tr>
-                <th>#</th>
-                <th>Name</th>
-                <th>Roll No.</th>
-              </tr>
-            </thead>
-            <tbody id="marks-tbody">
-              <tr><td colspan="3"><div class="empty-state"><div class="empty-icon">📊</div><p>No approved students yet.</p></div></td></tr>
-            </tbody>
-          </table>
-        </div>
+      <div id="marks-side-list" style="padding:10px 14px;border-bottom:1px solid var(--border,#2a2a35);display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <!-- populated by renderGradebook() -->
+      </div>
+      <div class="table-wrap">
+        <table id="marks-table">
+          <thead id="marks-thead">
+            <tr>
+              <th>Name</th>
+              <th>Roll No.</th>
+            </tr>
+          </thead>
+          <tbody id="marks-tbody">
+            <tr><td colspan="2"><div class="empty-state"><div class="empty-icon">📊</div><p>No approved students yet.</p></div></td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
     <p style="font-size:0.78rem;color:var(--muted);margin-top:10px;">
-      💡 Tip: to edit an old entry, just change the numbers in that column and click "Save & Sync Sheets" again.
+      💡 Marks save automatically as you type — you only need "Sync to Google Sheets" to push them to the Sheet.
     </p>
 
     <!-- Google Sheets link -->
@@ -587,10 +601,12 @@
     <div class="card" style="max-width:600px">
       <div class="card-header"><span class="card-title">👤 My Profile</span></div>
       <div class="card-body">
-        <div style="text-align:center;margin-bottom:28px;">
-          <div class="avatar" id="profile-avatar" style="width:72px;height:72px;font-size:1.6rem;margin:0 auto 12px;">A</div>
+       <div style="text-align:center;margin-bottom:28px;">
+          <div class="avatar" id="profile-avatar" style="width:72px;height:72px;font-size:1.6rem;margin:0 auto 12px;overflow:hidden;">A</div>
           <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700" id="profile-name-display">—</div>
           <div style="font-size:0.82rem;color:var(--muted);margin-top:3px" id="profile-email-display">—</div>
+          <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="uploadAvatar(this)"/>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="document.getElementById('avatar-file-input').click()">📷 Upload Photo (optional)</button>
         </div>
 
         <div class="profile-grid">
@@ -664,26 +680,67 @@ function setupRealtimeSync() {
       { event: '*', schema: 'public', table: 'marks', filter: `ta_id=eq.${currentTA.id}` },
       () => debouncedRefresh()
     )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'mark_categories', filter: `ta_id=eq.${currentTA.id}` },
+      () => debouncedRefresh()
+    )
     .subscribe();
 }
 
 function debouncedRefresh() {
   clearTimeout(realtimeDebounce);
   realtimeDebounce = setTimeout(async () => {
+    // Don't yank the table out from under someone actively typing a mark.
+    if (document.activeElement?.closest('#marks-tbody')) {
+      realtimeDebounce = setTimeout(() => debouncedRefresh(), 1500);
+      return;
+    }
     await loadAll();
     showToast('🔄', 'Updated with the latest changes');
   }, 600);
 }
+function renderAvatar(name, avatarUrl) {
+  const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  ['sb-avatar', 'profile-avatar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (avatarUrl) {
+      el.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="${name}"/>`;
+    } else {
+      el.textContent = initials;
+    }
+  });
+}
 
+async function uploadAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('⚠️', 'Please choose an image file.'); return; }
+  if (file.size > 3 * 1024 * 1024) { showToast('⚠️', 'Image must be under 3MB.'); return; }
+
+  showToast('⏳', 'Uploading photo...');
+  const ext  = file.name.split('.').pop();
+  const path = `${currentTA.id}/avatar.${ext}`;
+
+  const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { upsert: true });
+  if (upErr) { showToast('❌', 'Upload failed: ' + upErr.message); return; }
+
+  const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path);
+  const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+  const { error: dbErr } = await sb.from('ta_profiles').update({ avatar_url: avatarUrl }).eq('id', currentTA.id);
+  if (dbErr) { showToast('❌', 'Failed to save photo: ' + dbErr.message); return; }
+
+  currentTA.avatar_url = avatarUrl;
+  renderAvatar(currentTA.ta_name, avatarUrl);
+  showToast('✅', 'Profile photo updated!');
+}
 async function loadTA(user) {
   const { data, error } = await sb.from('ta_profiles').select('*').eq('id', user.id).single();
   if (error || !data) { showToast('❌','Profile not found. Please contact admin.'); return; }
   currentTA = data;
 
   // Sidebar
-  const initials = data.ta_name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-  document.getElementById('sb-avatar').textContent         = initials;
-  document.getElementById('profile-avatar').textContent    = initials;
+ renderAvatar(data.ta_name, data.avatar_url);
   document.getElementById('sb-name').textContent           = data.ta_name;
   document.getElementById('page-sub').textContent          = `Welcome back, ${data.ta_name.split(' ')[0]} 👋`;
 
@@ -726,39 +783,62 @@ async function loadStudents() {
 }
 
 // ── GRADEBOOK (multi-column marks) ──
-let marksColumns = [];        // [{ subject, total }]
-let marksLookup  = {};        // { [subject]: { [student_id]: { marks, remarks } } }
+let marksColumns = [];        // [{ id, name, total }]  (id = mark_categories.id)
+let marksLookup  = {};        // { [category_id]: { [student_id]: { marks, remarks } } }
 
 async function loadMarksData() {
-  const { data, error } = await sb.from('marks').select('*').eq('ta_id', currentTA.id);
-  if (error) { showToast('❌', 'Failed to load marks: ' + error.message); return; }
+  const { data: cats, error: catErr } = await sb.from('mark_categories').select('*').eq('ta_id', currentTA.id).order('created_at', { ascending: true });
+  if (catErr) { showToast('❌', 'Failed to load columns: ' + catErr.message); return; }
+  marksColumns = (cats || []).map(c => ({ id: c.id, name: c.name, total: c.total || 20 }));
 
-  const seen = new Map();
+  const { data: marks, error: markErr } = await sb.from('marks').select('*').eq('ta_id', currentTA.id).not('category_id', 'is', null);
+  if (markErr) { showToast('❌', 'Failed to load marks: ' + markErr.message); return; }
+
   marksLookup = {};
-  (data || []).forEach(m => {
-    if (!m.subject) return;
-    if (!seen.has(m.subject)) seen.set(m.subject, m.total || 20);
-    if (!marksLookup[m.subject]) marksLookup[m.subject] = {};
-    marksLookup[m.subject][m.student_id] = { marks: m.marks, remarks: m.remarks };
+  (marks || []).forEach(m => {
+    if (!marksLookup[m.category_id]) marksLookup[m.category_id] = {};
+    marksLookup[m.category_id][m.student_id] = { marks: m.marks, remarks: m.remarks };
   });
-  marksColumns = [...seen.entries()].map(([subject, total]) => ({ subject, total }));
 
   renderGradebook();
 }
 
-function addMarksColumn() {
-  const subject = document.getElementById('new-col-subject').value.trim();
-  const total   = parseFloat(document.getElementById('new-col-total').value) || 20;
-  if (!subject) { showToast('⚠️', 'Please enter a column name.'); return; }
-  if (marksColumns.some(c => c.subject === subject)) {
+async function addMarksColumn() {
+  const name  = document.getElementById('new-col-subject').value.trim();
+  const total = parseFloat(document.getElementById('new-col-total').value) || 20;
+  if (!name) { showToast('⚠️', 'Please enter a column name.'); return; }
+  if (marksColumns.some(c => c.name === name)) {
     showToast('⚠️', 'A column with that name already exists — scroll right to find it.');
     return;
   }
-  marksColumns.push({ subject, total });
-  marksLookup[subject] = {};
+
+  // Persist immediately — the column survives a refresh even with 0 marks in it yet.
+  const { data, error } = await sb.from('mark_categories').insert({ ta_id: currentTA.id, name, total }).select().single();
+  if (error) { showToast('❌', 'Failed to add column: ' + error.message); return; }
+
+  marksColumns.push({ id: data.id, name: data.name, total: data.total });
+  marksLookup[data.id] = {};
   document.getElementById('new-col-subject').value = '';
   document.getElementById('new-col-total').value = 20;
   renderGradebook();
+  showToast('✅', `Column "${name}" added.`);
+}
+
+async function renameColumn(categoryId) {
+  const col = marksColumns.find(c => c.id === categoryId);
+  if (!col) return;
+  const newName = prompt('Rename column:', col.name);
+  if (!newName || !newName.trim() || newName.trim() === col.name) return;
+  const trimmed = newName.trim();
+
+  const { error: e1 } = await sb.from('mark_categories').update({ name: trimmed }).eq('id', categoryId);
+  if (e1) { showToast('❌', 'Rename failed: ' + e1.message); return; }
+  // Keep the legacy `subject` text column in sync too (used by the Sheets sync).
+  await sb.from('marks').update({ subject: trimmed }).eq('category_id', categoryId);
+
+  col.name = trimmed;
+  renderGradebook();
+  showToast('✅', 'Column renamed.');
 }
 
 function renderGradebook() {
@@ -774,32 +854,35 @@ function renderGradebook() {
     );
   }
 
-  // Side "Jump to" list
-  const listHtml = `<div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Jump to</div>` +
+  // Horizontal "Jump to" pill list — each pill has a small rename (✏️) icon
+  const listHtml = `<span style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Jump to:</span>` +
     (marksColumns.length
-      ? marksColumns.map((c, i) => `<button class="side-list-item" onclick="jumpToColumn(${i})">${c.subject}</button>`).join('')
-      : `<div style="font-size:0.78rem;color:var(--muted);">No columns yet</div>`);
+      ? marksColumns.map((c, i) => `
+          <span class="side-list-item">
+            <span onclick="jumpToColumn(${i})" style="cursor:pointer;">${c.name}</span>
+            <span onclick="renameColumn('${c.id}')" title="Rename" style="cursor:pointer;margin-left:6px;opacity:0.7;">✏️</span>
+          </span>`).join('')
+      : `<span style="font-size:0.78rem;color:var(--muted);">No columns yet</span>`);
   sideList.innerHTML = listHtml;
 
   // Header row
   thead.innerHTML = `<tr>
-    <th>#</th><th>Name</th><th>Roll No.</th>
-    ${marksColumns.map((c,i) => `<th class="col-idx-${i}">${c.subject}<br><span style="font-weight:400;color:var(--muted);font-size:0.72rem">/ ${c.total}</span></th>`).join('')}
+    <th>Name</th><th>Roll No.</th>
+    ${marksColumns.map((c,i) => `<th class="col-idx-${i}">${c.name}<br><span style="font-weight:400;color:var(--muted);font-size:0.72rem">/ ${c.total}</span></th>`).join('')}
   </tr>`;
 
   if (!approved.length) {
-    tbody.innerHTML = `<tr><td colspan="${3 + marksColumns.length}"><div class="empty-state"><div class="empty-icon">📊</div><p>No approved students yet.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${2 + marksColumns.length}"><div class="empty-state"><div class="empty-icon">📊</div><p>No approved students yet.</p></div></td></tr>`;
     return;
   }
 
   tbody.innerHTML = approved.map((s, i) => `
     <tr>
-      <td style="color:var(--muted)">${i+1}</td>
       <td><strong>${s.name}</strong></td>
       <td style="font-family:monospace;color:var(--accent)">${s.roll_no}</td>
       ${marksColumns.map((c,ci) => {
-        const existing = marksLookup[c.subject]?.[s.id];
-        return `<td class="col-idx-${ci}"><input class="marks-input" data-subject="${c.subject}" data-student="${s.id}"
+        const existing = marksLookup[c.id]?.[s.id];
+        return `<td class="col-idx-${ci}"><input class="marks-input" data-category="${c.id}" data-student="${s.id}"
                   type="number" min="0" placeholder="—" style="width:70px"
                   value="${existing?.marks ?? ''}" onchange="updateMarksCell(this)"/></td>`;
       }).join('')}
@@ -815,15 +898,34 @@ function jumpToColumn(index) {
   setTimeout(() => cells.forEach(c => c.classList.remove('col-highlight')), 1200);
 }
 
-// Keep marksLookup (the real source of truth) in sync as the TA types —
-// this way, saving always covers every approved student, even ones
-// currently hidden by an active search filter.
-function updateMarksCell(input) {
-  const subject = input.dataset.subject;
-  const studentId = input.dataset.student;
+// Auto-saves the moment a TA finishes typing a mark — no need to hit
+// "Save & Sync Sheets" just to keep the data safe. That button is now only
+// needed to push everything to Google Sheets.
+async function updateMarksCell(input) {
+  const categoryId = input.dataset.category;
+  const studentId  = input.dataset.student;
+  const col = marksColumns.find(c => c.id === categoryId);
+  if (!col) return;
+
   const val = input.value === '' ? null : parseFloat(input.value);
-  if (!marksLookup[subject]) marksLookup[subject] = {};
-  marksLookup[subject][studentId] = { marks: isNaN(val) ? null : val, remarks: null };
+  if (!marksLookup[categoryId]) marksLookup[categoryId] = {};
+  marksLookup[categoryId][studentId] = { marks: isNaN(val) ? null : val, remarks: null };
+
+  if (val === null || isNaN(val)) {
+    await sb.from('marks').delete().eq('student_id', studentId).eq('category_id', categoryId);
+    return;
+  }
+
+  const { error } = await sb.from('marks').upsert({
+    student_id:  studentId,
+    ta_id:       currentTA.id,
+    category_id: categoryId,
+    subject:     col.name,
+    marks:       val,
+    total:       col.total,
+  }, { onConflict: 'student_id,category_id,subject' });
+
+  if (error) showToast('❌', 'Auto-save failed: ' + error.message);
 }
 
 function extractSheetId(url) {
@@ -846,42 +948,12 @@ function updateSheetLinkUI(url) {
   }
 }
 
+// Marks are already auto-saved as the TA types (see updateMarksCell above).
+// This button's job now is simply to push the current gradebook to Sheets.
 async function saveAllMarks() {
   if (!marksColumns.length) { showToast('⚠️', 'Add at least one column first.'); return; }
-
-  // Always use the FULL approved student list (not the search-filtered view)
-  // so a search doesn't accidentally wipe out hidden students' marks.
   const approved = allStudents.filter(s => s.status === 'approved');
-  const allRows = [];
-
-  marksColumns.forEach(col => {
-    approved.forEach(s => {
-      const cell = marksLookup[col.subject]?.[s.id];
-      if (!cell || cell.marks === null || cell.marks === undefined || isNaN(cell.marks)) return;
-      allRows.push({
-        student_id: s.id,
-        ta_id:      currentTA.id,
-        subject:    col.subject,
-        marks:      cell.marks,
-        total:      col.total,
-        remarks:    cell.remarks || null,
-      });
-    });
-  });
-
-  if (!allRows.length) { showToast('⚠️', 'No marks entered.'); return; }
-
-  // Replace every column's data cleanly — avoids duplicate rows while every
-  // student (searched or not) keeps their marks.
-  const subjects = marksColumns.map(c => c.subject);
-  const { error: delErr } = await sb.from('marks').delete().eq('ta_id', currentTA.id).in('subject', subjects);
-  if (delErr) { showToast('❌', 'Save failed: ' + delErr.message); return; }
-
-  const { error } = await sb.from('marks').insert(allRows);
-  if (error) { showToast('❌', 'Save failed: ' + error.message); return; }
-
-  showToast('✅', `Saved ${allRows.length} marks across ${subjects.length} column(s)! Syncing to Sheets...`);
-  await loadMarksData();
+  showToast('🎉', 'Syncing to Google Sheets...');
   await syncToGoogleSheets(approved);
 }
 
@@ -892,13 +964,13 @@ async function syncToGoogleSheets(approvedStudents) {
   // sheet always mirrors the dashboard exactly — Quiz 1, Quiz 2, etc. all as
   // their own columns, never mixed together.
   const students = approvedStudents.map(s => ({ name: s.name, roll_no: s.roll_no }));
-  const columns  = marksColumns.map(c => c.subject);
+  const columns  = marksColumns.map(c => c.name);
   const grid = {};
   marksColumns.forEach(c => {
-    grid[c.subject] = {};
+    grid[c.name] = {};
     approvedStudents.forEach(s => {
-      const cell = marksLookup[c.subject]?.[s.id];
-      grid[c.subject][s.roll_no] = cell?.marks ?? '';
+      const cell = marksLookup[c.id]?.[s.id];
+      grid[c.name][s.roll_no] = cell?.marks ?? '';
     });
   });
 
@@ -1114,9 +1186,7 @@ async function saveProfile() {
   document.getElementById('prev-ta-name').textContent     = ta_name;
   document.getElementById('prev-course').textContent      = course;
   document.getElementById('prev-sir').textContent         = sir_name;
-  const initials = ta_name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-  document.getElementById('sb-avatar').textContent        = initials;
-  document.getElementById('profile-avatar').textContent   = initials;
+renderAvatar(ta_name, currentTA.avatar_url);
 
   showToast('✅','Profile updated!');
 }
@@ -1144,6 +1214,7 @@ function showSection(id) {
   const meta = sectionMeta[id] || {};
   document.getElementById('page-title').textContent = meta.title || id;
   document.getElementById('page-sub').textContent   = meta.sub   || '';
+  document.body.classList.toggle('compact-sidebar', id === 'marks');
   closeSidebar();
 }
 
