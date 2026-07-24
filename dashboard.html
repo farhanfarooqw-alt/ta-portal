@@ -704,18 +704,20 @@ function setupRealtimeSync() {
     .subscribe();
 }
 
+let refreshRetries = 0;
+
 function debouncedRefresh() {
   clearTimeout(realtimeDebounce);
   realtimeDebounce = setTimeout(async () => {
-    // Don't yank the table out from under someone actively typing a mark.
-    if (document.activeElement?.closest('#marks-tbody')) {
-      realtimeDebounce = setTimeout(() => debouncedRefresh(), 1500);
+    if (document.activeElement?.closest('#marks-tbody') && refreshRetries < 3) {
+      refreshRetries++;
+      realtimeDebounce = setTimeout(() => debouncedRefresh(), 900);
       return;
     }
+    refreshRetries = 0;
     await loadAll();
     showToast('🔄', 'Updated with the latest changes');
   }, 600);
-}
 function renderAvatar(name, avatarUrl) {
   const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   ['sb-avatar', 'profile-avatar'].forEach(id => {
