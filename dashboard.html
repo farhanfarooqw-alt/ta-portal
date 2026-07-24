@@ -288,6 +288,23 @@
       .stats-row { grid-template-columns:1fr 1fr; }
       .mob-toggle { display:flex; }
       .profile-grid { grid-template-columns:1fr; }
+
+      #marks-table { table-layout: auto; width: max-content; min-width: 100%; }
+      #marks-table th, #marks-table td { white-space: nowrap; }
+      #marks-table th:nth-child(1), #marks-table td:nth-child(1) { width: auto; }
+      #marks-table th:nth-child(2), #marks-table td:nth-child(2) { width: auto; }
+      #marks-table th:nth-child(1), #marks-table td:nth-child(1),
+      #marks-table th:nth-child(2), #marks-table td:nth-child(2) {
+        position: sticky; background: var(--card, #1a2235); overflow: visible; text-overflow: clip;
+      }
+      #marks-table th:nth-child(1), #marks-table td:nth-child(1) { left: 0;     min-width: 100px; }
+      #marks-table th:nth-child(2), #marks-table td:nth-child(2) { left: 100px; min-width: 70px; box-shadow: 2px 0 4px rgba(0,0,0,0.25); }
+      #marks-table thead th:nth-child(1), #marks-table thead th:nth-child(2) { z-index: 6; }
+      #marks-table th:nth-child(1), #marks-table td:nth-child(1),
+      #marks-table th:nth-child(2), #marks-table td:nth-child(2) { z-index: 2; }
+      #marks-table th:not(:nth-child(1)):not(:nth-child(2)),
+      #marks-table td:not(:nth-child(1)):not(:nth-child(2)) { min-width: 80px; }
+      #marks-table .marks-input { max-width: 70px; font-size: 0.9rem; padding: 8px 4px; }
     }
     @media(max-width:500px) {
       .stats-row { grid-template-columns:1fr 1fr; gap:10px; }
