@@ -55,8 +55,7 @@
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       display: flex; align-items: center; justify-content: center;
       font-family: 'Syne', sans-serif; font-weight: 800;
-      font-size: 0.85rem; color: #fff; flex-shrink: 0;
-      overflow: hidden;
+      font-size: 0.85rem; color: #fff; flex-shrink: 0; overflow: hidden;
     }
     .ta-mini-info { overflow: hidden; }
     .ta-mini-name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -289,6 +288,9 @@
       .mob-toggle { display:flex; }
       .profile-grid { grid-template-columns:1fr; }
 
+      /* ── Gradebook: behave like Excel/Sheets on mobile — fixed-size
+         readable columns you scroll through, instead of squeezing
+         everything to fit. Name + Roll No stay frozen on the left. ── */
       #marks-table { table-layout: auto; width: max-content; min-width: 100%; }
       #marks-table th, #marks-table td { white-space: nowrap; }
       #marks-table th:nth-child(1), #marks-table td:nth-child(1) { width: auto; }
@@ -618,7 +620,7 @@
     <div class="card" style="max-width:600px">
       <div class="card-header"><span class="card-title">👤 My Profile</span></div>
       <div class="card-body">
-       <div style="text-align:center;margin-bottom:28px;">
+        <div style="text-align:center;margin-bottom:28px;">
           <div class="avatar" id="profile-avatar" style="width:72px;height:72px;font-size:1.6rem;margin:0 auto 12px;overflow:hidden;">A</div>
           <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700" id="profile-name-display">—</div>
           <div style="font-size:0.82rem;color:var(--muted);margin-top:3px" id="profile-email-display">—</div>
@@ -679,12 +681,14 @@ let currentFilter = 'all';
   await loadTA(session.user);
   await loadAll();
   setupRealtimeSync();
+  setTimeout(restoreScrollPositions, 100);
 })();
 
 // ── REALTIME SYNC (live updates across devices) ──
 // Whenever another device/tab changes this TA's students or marks,
 // silently refresh the data so everyone stays in sync without a manual reload.
 let realtimeDebounce;
+let refreshRetries = 0;
 function setupRealtimeSync() {
   if (!currentTA) return;
 
@@ -704,11 +708,12 @@ function setupRealtimeSync() {
     .subscribe();
 }
 
-let refreshRetries = 0;
-
 function debouncedRefresh() {
   clearTimeout(realtimeDebounce);
   realtimeDebounce = setTimeout(async () => {
+    // Briefly avoid yanking the table while someone is actively typing a mark —
+    // but never defer for more than ~3 seconds, so the other device is never
+    // stuck stale for long.
     if (document.activeElement?.closest('#marks-tbody') && refreshRetries < 3) {
       refreshRetries++;
       realtimeDebounce = setTimeout(() => debouncedRefresh(), 900);
@@ -719,6 +724,8 @@ function debouncedRefresh() {
     showToast('🔄', 'Updated with the latest changes');
   }, 600);
 }
+
+// ── AVATAR (optional profile picture — falls back to initials) ──
 function renderAvatar(name, avatarUrl) {
   const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   ['sb-avatar', 'profile-avatar'].forEach(id => {
@@ -745,7 +752,7 @@ async function uploadAvatar(input) {
   if (upErr) { showToast('❌', 'Upload failed: ' + upErr.message); return; }
 
   const { data: urlData } = sb.storage.from('avatars').getPublicUrl(path);
-  const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+  const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`; // cache-bust so the new photo shows immediately
 
   const { error: dbErr } = await sb.from('ta_profiles').update({ avatar_url: avatarUrl }).eq('id', currentTA.id);
   if (dbErr) { showToast('❌', 'Failed to save photo: ' + dbErr.message); return; }
@@ -754,13 +761,14 @@ async function uploadAvatar(input) {
   renderAvatar(currentTA.ta_name, avatarUrl);
   showToast('✅', 'Profile photo updated!');
 }
+
 async function loadTA(user) {
   const { data, error } = await sb.from('ta_profiles').select('*').eq('id', user.id).single();
   if (error || !data) { showToast('❌','Profile not found. Please contact admin.'); return; }
   currentTA = data;
 
   // Sidebar
- renderAvatar(data.ta_name, data.avatar_url);
+  renderAvatar(data.ta_name, data.avatar_url);
   document.getElementById('sb-name').textContent           = data.ta_name;
   document.getElementById('page-sub').textContent          = `Welcome back, ${data.ta_name.split(' ')[0]} 👋`;
 
@@ -820,7 +828,14 @@ async function loadMarksData() {
     marksLookup[m.category_id][m.student_id] = { marks: m.marks, remarks: m.remarks };
   });
 
+  // Restore any changes that never made it to the database (e.g. the phone
+  // was turned off, or connection dropped) — they're kept safe in this
+  // browser's storage until they successfully sync.
+  loadPendingFromStorage();
+
   renderGradebook();
+  reapplyPendingIndicators();
+  retryPendingSaves();
 }
 
 async function addMarksColumn() {
@@ -921,6 +936,54 @@ function jumpToColumn(index) {
 // Auto-saves the moment a TA finishes typing a mark — no need to hit
 // "Save & Sync Sheets" just to keep the data safe. That button is now only
 // needed to push everything to Google Sheets.
+//
+// If the save fails (e.g. internet drops), the cell is remembered here AND
+// written to localStorage — so even if the phone is closed or turned off
+// mid-edit, nothing is lost. It's picked up again and retried the next
+// time this dashboard is opened, or the moment the connection returns.
+let pendingSaves = {};
+function cellKey(categoryId, studentId) { return `${categoryId}:${studentId}`; }
+function pendingStorageKey() { return `ta_portal_pending_${currentTA?.id}`; }
+
+function savePendingToStorage() {
+  try { localStorage.setItem(pendingStorageKey(), JSON.stringify(pendingSaves)); }
+  catch (e) { /* storage unavailable — safe to ignore, retry logic still works this session */ }
+}
+
+function loadPendingFromStorage() {
+  try {
+    const raw = localStorage.getItem(pendingStorageKey());
+    if (!raw) return;
+    const stored = JSON.parse(raw);
+    Object.keys(stored).forEach(key => {
+      pendingSaves[key] = stored[key];
+      const p = stored[key];
+      // Make sure the unsaved value still shows in the gradebook immediately,
+      // even before we've re-fetched/retried anything.
+      if (p.type === 'upsert') {
+        if (!marksLookup[p.categoryId]) marksLookup[p.categoryId] = {};
+        marksLookup[p.categoryId][p.studentId] = { marks: p.val, remarks: null };
+      }
+    });
+  } catch (e) { /* corrupted/unavailable storage — ignore */ }
+}
+
+function markCellFailed(input, failed) {
+  if (!input) return;
+  input.style.borderColor = failed ? '#f77474' : '';
+  input.title = failed ? 'Not saved yet — will retry automatically once you\'re back online' : '';
+}
+
+// Re-apply the red "not saved yet" outline after the table re-renders
+// (new <input> elements are created each time, so the styling needs reapplying).
+function reapplyPendingIndicators() {
+  Object.keys(pendingSaves).forEach(key => {
+    const p = pendingSaves[key];
+    const input = document.querySelector(`.marks-input[data-category="${p.categoryId}"][data-student="${p.studentId}"]`);
+    markCellFailed(input, true);
+  });
+}
+
 async function updateMarksCell(input) {
   const categoryId = input.dataset.category;
   const studentId  = input.dataset.student;
@@ -931,8 +994,19 @@ async function updateMarksCell(input) {
   if (!marksLookup[categoryId]) marksLookup[categoryId] = {};
   marksLookup[categoryId][studentId] = { marks: isNaN(val) ? null : val, remarks: null };
 
+  const key = cellKey(categoryId, studentId);
+
   if (val === null || isNaN(val)) {
-    await sb.from('marks').delete().eq('student_id', studentId).eq('category_id', categoryId);
+    const { error } = await sb.from('marks').delete().eq('student_id', studentId).eq('category_id', categoryId);
+    if (error) {
+      pendingSaves[key] = { type: 'delete', categoryId, studentId };
+      markCellFailed(input, true);
+      showToast('⚠️', "Offline — saved on this device, will sync once you're back online.");
+    } else {
+      delete pendingSaves[key];
+      markCellFailed(input, false);
+    }
+    savePendingToStorage();
     return;
   }
 
@@ -945,8 +1019,49 @@ async function updateMarksCell(input) {
     total:       col.total,
   }, { onConflict: 'student_id,category_id,subject' });
 
-  if (error) showToast('❌', 'Auto-save failed: ' + error.message);
+  if (error) {
+    pendingSaves[key] = { type: 'upsert', categoryId, studentId, col, val };
+    markCellFailed(input, true);
+    showToast('⚠️', "Offline — saved on this device, will sync once you're back online.");
+  } else {
+    delete pendingSaves[key];
+    markCellFailed(input, false);
+  }
+  savePendingToStorage();
 }
+
+async function retryPendingSaves() {
+  const keys = Object.keys(pendingSaves);
+  if (!keys.length) return;
+  showToast('🔄', `Syncing ${keys.length} unsaved mark(s)...`);
+
+  for (const key of keys) {
+    const p = pendingSaves[key];
+    const input = document.querySelector(`.marks-input[data-category="${p.categoryId}"][data-student="${p.studentId}"]`);
+
+    if (p.type === 'delete') {
+      const { error } = await sb.from('marks').delete().eq('student_id', p.studentId).eq('category_id', p.categoryId);
+      if (!error) { delete pendingSaves[key]; markCellFailed(input, false); }
+    } else {
+      const { error } = await sb.from('marks').upsert({
+        student_id: p.studentId, ta_id: currentTA.id, category_id: p.categoryId,
+        subject: p.col.name, marks: p.val, total: p.col.total,
+      }, { onConflict: 'student_id,category_id,subject' });
+      if (!error) { delete pendingSaves[key]; markCellFailed(input, false); }
+    }
+  }
+
+  savePendingToStorage();
+  if (!Object.keys(pendingSaves).length) showToast('✅', 'All marks are saved.');
+}
+
+window.addEventListener('online', retryPendingSaves);
+window.addEventListener('beforeunload', (e) => {
+  if (Object.keys(pendingSaves).length) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 function extractSheetId(url) {
   if (!url) return null;
@@ -1206,7 +1321,7 @@ async function saveProfile() {
   document.getElementById('prev-ta-name').textContent     = ta_name;
   document.getElementById('prev-course').textContent      = course;
   document.getElementById('prev-sir').textContent         = sir_name;
-renderAvatar(ta_name, currentTA.avatar_url);
+  renderAvatar(ta_name, currentTA.avatar_url);
 
   showToast('✅','Profile updated!');
 }
@@ -1235,6 +1350,7 @@ function showSection(id) {
   document.getElementById('page-title').textContent = meta.title || id;
   document.getElementById('page-sub').textContent   = meta.sub   || '';
   document.body.classList.toggle('compact-sidebar', id === 'marks');
+  localStorage.setItem('ta_last_section', id);
   closeSidebar();
 }
 
@@ -1250,6 +1366,46 @@ function showToast(icon, msg) {
   const t = document.getElementById('toast');
   t.classList.add('show');
   toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// Restore whichever tab the TA was last on — INSTANTLY, without waiting for
+// data to load, so there's no flash of "Overview" before it switches.
+(() => {
+  const savedSection = localStorage.getItem('ta_last_section');
+  if (savedSection && sectionMeta[savedSection]) showSection(savedSection);
+})();
+
+// ── SCROLL POSITION MEMORY ──
+// Remembers how far down the page (and the gradebook table specifically)
+// the TA had scrolled, and puts them back there after a refresh.
+let scrollSaveTimer;
+function saveScrollPositions() {
+  clearTimeout(scrollSaveTimer);
+  scrollSaveTimer = setTimeout(() => {
+    localStorage.setItem('ta_scroll_window', window.scrollY);
+    const gb = document.querySelector('.gradebook-card .table-wrap');
+    if (gb) {
+      localStorage.setItem('ta_scroll_gb_top',  gb.scrollTop);
+      localStorage.setItem('ta_scroll_gb_left', gb.scrollLeft);
+    }
+  }, 150);
+}
+window.addEventListener('scroll', saveScrollPositions);
+document.addEventListener('scroll', (e) => {
+  if (e.target.closest && e.target.closest('.gradebook-card .table-wrap')) saveScrollPositions();
+}, true);
+
+function restoreScrollPositions() {
+  const winY = parseInt(localStorage.getItem('ta_scroll_window'), 10);
+  if (!isNaN(winY)) window.scrollTo(0, winY);
+
+  const gbTop  = parseInt(localStorage.getItem('ta_scroll_gb_top'), 10);
+  const gbLeft = parseInt(localStorage.getItem('ta_scroll_gb_left'), 10);
+  const gb = document.querySelector('.gradebook-card .table-wrap');
+  if (gb) {
+    if (!isNaN(gbTop))  gb.scrollTop  = gbTop;
+    if (!isNaN(gbLeft)) gb.scrollLeft = gbLeft;
+  }
 }
 </script>
 </body>
